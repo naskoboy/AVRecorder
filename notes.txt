@@ -1,0 +1,50 @@
+//package
+
+import dispatch._
+import net.liftweb.json.JsonAST._
+import dispatch.liftjson.Js._
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: nasko
+ * Date: 10/24/11
+ * Time: 9:52 PM
+ * To change this template use File | Settings | File Templates.
+ */
+
+object avrecorder {
+  def main(args:Array[String]) {
+    println("hello")
+
+    //Http(url("http://www.dnevnik.bg/sled5/tv/index.php?channels[]=99&den=29%2F10%2F2011") >>> System.out)
+
+
+
+//    val req = url("http://www.scala-lang.org")
+   // Http(req >>> System.out)
+
+//    Http(req </> { nodes => (nodes \\ "title").text})
+
+    val http = new Http()
+    val u = url("http://www.dnevnik.bg/sled5/tv/index.php?channels[]=99&den=29%2F10%2F2011") <<? Map("q" -> "scala")
+
+println ( http(u ># { json =>
+  (json \ "title" children)
+}))
+
+
+/*
+val res = http(u ># { json =>
+  (json \ "title" children) flatMap( _ match {
+    case JField("title", JString(d)) => Some(d)
+    case JString(d) => Some(d)
+    case _ => None
+  })
+
+})
+println(res)
+*/
+
+  }
+
+}
