@@ -278,26 +278,27 @@ object Scheduler extends App {
       val tvList = findNodes(doc, (n: Node) => {
           val x = n.attribute("class")
           x!=None && x.get.toString.equals("tvlist")
-      }).head
-      val items = findNodes(tvList, (n: Node) => n.label=="li" )
-
-      var currentHour=0
-      var earlyMorning=false
-      items.foreach(it => {
-        val timeString = it.child.head.text
-        val p(h,m) = timeString
-        val hInt=h.toInt
-        val mInt=m.toInt
-        if (!earlyMorning && hInt<currentHour) earlyMorning=true
-        currentHour=hInt
-        val article_start = date.clone().asInstanceOf[Calendar]
-        article_start.set(Calendar.HOUR, hInt)
-        article_start.set(Calendar.MINUTE, mInt)
-        article_start.set(Calendar.MILLISECOND, 0)
-        if (earlyMorning) article_start.add(Calendar.DATE,1)
-        val nameString = it.child.tail.head.text.trim
-        articles += new Article(station, article_start, 0, nameString)
       })
+      if (!tvList.isEmpty) {
+        val items = findNodes(tvList.head, (n: Node) => n.label=="li" )
+        var currentHour=0
+        var earlyMorning=false
+        items.foreach(it => {
+          val timeString = it.child.head.text
+          val p(h,m) = timeString
+          val hInt=h.toInt
+          val mInt=m.toInt
+          if (!earlyMorning && hInt<currentHour) earlyMorning=true
+          currentHour=hInt
+          val article_start = date.clone().asInstanceOf[Calendar]
+          article_start.set(Calendar.HOUR, hInt)
+          article_start.set(Calendar.MINUTE, mInt)
+          article_start.set(Calendar.MILLISECOND, 0)
+          if (earlyMorning) article_start.add(Calendar.DATE,1)
+          val nameString = it.child.tail.head.text.trim
+          articles += new Article(station, article_start, 0, nameString)
+        })
+      }
       date.add(Calendar.DATE, 1)
     }
     var articlesList = articles.toList
