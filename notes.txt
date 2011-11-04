@@ -48,3 +48,8 @@ println(res)
   }
 
 }
+
+
+http://localhost:8080/AVRecorder_war_exploded/
+http://exploring.liftweb.net/master/index-1.html
+http://simply.liftweb.net/index-2.2.html#prev
