@@ -497,6 +497,6 @@ object Scheduler extends App {
 	}
 
 	main
-//DnevnikBgTvGuide(NovaTV, 99) foreach println _
+// DnevnikBgTvGuide(NovaTV, 99) foreach println _
 
 }
