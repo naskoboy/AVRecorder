@@ -379,7 +379,7 @@ object Scheduler extends App {
 			val targetDurationInMin=article.duration+article.station.timeAdvance+article.station.extraTime
 			val targetSize=targetDurationInMin*sizePerMinute
 			val fullFileName = article.station.folder + "\\" + filename + ".asf"
-			val cmd = "\"" + System.getProperty("vlc") + "\" -vvv " + vlcUrl + " :sout=#file{dst=" + fullFileName + "} :no-sout-rtp-sap :no-sout-standard-sap :ttl=1 :sout-keep --run-time=" + targetDurationInMin*60 + " vlc://quit"
+			val cmd = "\"" + System.getProperty("vlc") + "\" -vvv " + vlcUrl + " :sout=#file{dst=" + fullFileName + "} :no-sout-rtp-sap :no-sout-standard-sap :ttl=1 :sout-keep --run-time=" + targetDurationInMin*60 + " --intf=dummy --dummy-quiet vlc://quit"
 			println(cmd + ", targetSize=" + targetSize + ", targetDuration=" + targetDurationInMin)
 			val p = Runtime.getRuntime().exec(cmd)
 			startGobblers(filename, p)
