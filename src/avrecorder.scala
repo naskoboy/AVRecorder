@@ -41,16 +41,6 @@ abstract class Station(val name:String, val folder:String, val timeZone:TimeZone
 		}
 		sb.toString
 	}
-	
-	def nextDay(c:Calendar) = {
-		val nextDay = c.clone.asInstanceOf[Calendar]
-		nextDay.add(Calendar.DATE,1)
-		nextDay.set(Calendar.HOUR_OF_DAY,0)
-		nextDay.set(Calendar.MINUTE,0)
-		nextDay.set(Calendar.SECOND,0)
-		nextDay.set(Calendar.MILLISECOND,0)
-		nextDay
-	}
 
 	def fixArticleDurations(l: List[Article]):Unit = {
 		var h = l.head
@@ -60,7 +50,7 @@ abstract class Station(val name:String, val folder:String, val timeZone:TimeZone
 			h = t.head
 			t = t.tail
 		} while (!t.isEmpty)
-		h.duration = (nextDay(h.start).getTime.getTime - h.start.getTime.getTime)/(1000*60)
+		h.duration = (Scheduler.nextDay(h.start).getTime.getTime - h.start.getTime.getTime)/(1000*60)
 	}
 
 	def dateFormatter(date:Date):String = {
@@ -73,12 +63,10 @@ abstract class Station(val name:String, val folder:String, val timeZone:TimeZone
 
 class Article (val station:Station, val start:Calendar, var duration:Long, val name:String) {
 
-	def getStartText = { station.dateFormatter(start.getTime) }
+	def getStartText = station.dateFormatter(start.getTime)
 
-	override def toString = { 
-		station.name + ", " + station.dateFormatter(start.getTime) + ", " + duration + ", " + name
-	}
-	
+	override def toString = station.name + ", " + station.dateFormatter(start.getTime) + ", " + duration + ", " + name
+
 	override def equals(a:Any) = {
 		val b = a.asInstanceOf[Article]
 		this.station==b.station &&
@@ -264,6 +252,7 @@ object Scheduler extends App {
 
 	def DnevnikBgTvGuide(station:Station, channelId:Int) : List[Article] = {
     val date = Calendar.getInstance(station.timeZone)
+    date.add(Calendar.DATE,-1)
     val df = new SimpleDateFormat("dd-MM-yyyy")
     df.setTimeZone(station.timeZone)
     val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
@@ -272,7 +261,8 @@ object Scheduler extends App {
     val p = """(.*):(.*)""".r
     val articles = new ListBuffer[Article]
     for (i <- 0.to(6)) {
-      val source = new org.xml.sax.InputSource("http://www.dnevnik.bg/sled5/tv/index.php?channels[]=" + channelId + "&den=" + df.format(date.getTime).replace("-","%2F"))
+      val url = "http://www.dnevnik.bg/sled5/tv/index.php?channels[]=" + channelId + "&den=" + df.format(date.getTime).replace("-", "%2F")
+      val source = new org.xml.sax.InputSource(url)
         //"http://www.potv.bg/tv49.html?fromh=0")
       val doc = adapter.loadXML(source, parser)
       val tvList = findNodes(doc, (n: Node) => {
@@ -291,9 +281,10 @@ object Scheduler extends App {
           if (!earlyMorning && hInt<currentHour) earlyMorning=true
           currentHour=hInt
           val article_start = date.clone().asInstanceOf[Calendar]
-          article_start.set(Calendar.HOUR, hInt)
+          article_start.set(Calendar.HOUR_OF_DAY, hInt)
           article_start.set(Calendar.MINUTE, mInt)
-          article_start.set(Calendar.MILLISECOND, 0)
+          article_start.set(Calendar.SECOND, 0)
+          //article_start.set(Calendar.MILLISECOND, 0)
           if (earlyMorning) article_start.add(Calendar.DATE,1)
           val nameString = it.child.tail.head.text.trim
           articles += new Article(station, article_start, 0, nameString)
@@ -369,7 +360,8 @@ object Scheduler extends App {
 			new Gobbler(id+",STDOUT:"  , p.getInputStream, true).start
 			new Gobbler(id+",STDERROR:", p.getErrorStream, true).start
 		}
-	
+// C:\Users\nasko>"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://193.43.26.22/live/livestream1 --quiet --stop 14400 --timeout 240 -o "c:\temp\BntWorldTV_Rtmpdump_T_111206_0529.flv"
+
 		override def run() = {
 			val sizePerMinute=4257000L
 			val df = new SimpleDateFormat("yyMMdd_HHmm")
@@ -387,15 +379,15 @@ object Scheduler extends App {
 	} 
 
 	class BnrStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 0, 10) {
-		override def getRecorderTimerTask(article:Article) : TimerTask = { new rarmaTimerTask(article) }
+		override def getRecorderTimerTask(article:Article) : TimerTask = new rarmaTimerTask(article)
 	}
 	
 	class BntStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5, 5) {
-		override def getRecorderTimerTask(article:Article) : TimerTask = { new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article) }
+		override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article)
 	}
 
 	class NovaStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5,5) {
-		override def getRecorderTimerTask(article:Article) : TimerTask = { new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article) }
+		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
 	}
 
 	def findTargets(articles: List[Article], subscriptions: List[String]) : (List[Article],List[String]) = {
@@ -413,7 +405,17 @@ object Scheduler extends App {
 		}
 		(targets.toList.sortWith(Scheduler.sorter),warnings)
 	}
-	
+
+  def nextDay(c:Calendar) = {
+    val nextDay = c.clone.asInstanceOf[Calendar]
+    nextDay.add(Calendar.DATE,1)
+    nextDay.set(Calendar.HOUR_OF_DAY,0)
+    nextDay.set(Calendar.MINUTE,0)
+    nextDay.set(Calendar.SECOND,0)
+    nextDay.set(Calendar.MILLISECOND,0)
+    nextDay
+  }
+
 	val rarmaRadio = System.getProperty("rarmaRadio")
 	assert(rarmaRadio!= null && new File(rarmaRadio).exists, "rarmaRadio executable is not found")
 	
@@ -466,7 +468,7 @@ object Scheduler extends App {
 
       // Get all Targets
       val now = Calendar.getInstance(bgTimeZone)
-      val tomorrow = Horizont.nextDay(now)
+      val tomorrow = Scheduler.nextDay(now)
       var (allTargets, warnings) = findTargets(articles, subscriptions)
       var targets = allTargets.filter(it => now.getTime.getTime <= it.start.getTime.getTime && it.start.getTime.getTime < tomorrow.getTime.getTime)
       if (testRarma)    targets = new Article(Horizont  , Calendar.getInstance, 1, "Rarma Тест") :: targets
@@ -474,9 +476,9 @@ object Scheduler extends App {
       if (testVlc)      targets = new Article(NovaTV    , Calendar.getInstance, 5, "Vlc Тест") :: targets
 
       if (verbose) {
-        //println("--- Articles ---")		;articles.foreach(println)
+        println("--- Articles ---")		;articles.foreach(println)
         //println("--- Subscriptions ---");subscriptions.foreach(println)
-        println("--- Targets ---")		;allTargets.foreach(println)
+        println("--- All Targets ---")		;allTargets.foreach(println)
         //println("--- Warnings ---")		;warnings.foreach(println)
       }
 
