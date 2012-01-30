@@ -316,7 +316,10 @@ object Scheduler extends App {
 		}
 	}
 
-	class rtmpTimerTask(rtmpUrl:String, article:Article) extends TimerTask {
+	class rtmpTimerTask(rtmpUrl:String, article:Article, pageUrl:String, socks:String) extends TimerTask {
+
+    def this(rtmpUrl:String, article:Article) = this(rtmpUrl, article, "", "")
+
 		def startGobblers(id:String, p:Process) : Unit = {
 			new Gobbler(id+",STDOUT:"  , p.getInputStream, false).start
 			new Gobbler(id+",STDERROR:", p.getErrorStream, false).start
@@ -331,7 +334,10 @@ object Scheduler extends App {
 			val targetDurationInMin=article.duration+article.station.timeAdvance+article.station.extraTime
 			val targetSize=targetDurationInMin*sizePerMinute
 			val fullFileName = article.station.folder + "\\" + filename + ".flv"
-			val cmd = "\"" + System.getProperty("rtmpdump") + "\" -v -r " + rtmpUrl + " --quiet --stop 14400 --timeout 240 -o \"" + fullFileName + "\""
+			val cmd = "\"" + System.getProperty("rtmpdump") + "\" -v -r " + rtmpUrl + " --quiet --stop 14400 --timeout 240 -o \"" + fullFileName + "\"" +
+        (if (pageUrl=="") "" else " -p \"" + pageUrl + "\"") +
+        (if (socks=="") "" else " -S " + socks)
+
 			// --stop " + durationInSec + " 
 			println(cmd + ", targetSize=" + targetSize + ", targetDuration=" + targetDurationInMin)
 			val startPoint=Calendar.getInstance.getTimeInMillis
@@ -385,6 +391,12 @@ object Scheduler extends App {
 	class BntStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5, 5) {
 		override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article)
 	}
+
+  class BNT1Station(name:String, folder:String, timeZone:TimeZone) extends Station("BNT1", folder, timeZone, 5, 5) {
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://edge2.evolink.net:2020/fls/bnt.stream", article, "http://tv.bnt.bg/bnt1/", "vanja.gotdns.com:1080")
+  }
+
+// C:\Users\nasko>"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://edge2.evolink.net:2020/fls/bnt.stream --stop 20 --timeout 240 -o "c:\temp\Test1.flv" -p "http://tv.bnt.bg/bnt1/" -S vanja.gotdns.com:1080 -V
 
 	class NovaStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5,5) {
 		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
@@ -440,8 +452,11 @@ object Scheduler extends App {
 	val testRarmaProperty = System.getProperty("testRarma")
 	val testRarma = testRarmaProperty!=null && testRarmaProperty.toBoolean
 	
-	val testRtmpdumpProperty = System.getProperty("testRtmpdump")
-	val testRtmpdump = testRtmpdumpProperty!=null && testRtmpdumpProperty.toBoolean
+	val testProxyProperty = System.getProperty("testProxy")
+	val testProxy = testProxyProperty!=null && testProxyProperty.toBoolean
+
+  val testRtmpdumpProperty = System.getProperty("testRtmpdump")
+  val testRtmpdump = testRtmpdumpProperty!=null && testRtmpdumpProperty.toBoolean
 
 	val testVlcProperty = System.getProperty("testVlc")
 	val testVlc = testVlcProperty!=null && testVlcProperty.toBoolean
@@ -452,6 +467,7 @@ object Scheduler extends App {
 	val BGRadio 	  = new BnrStation("BGRadio"		, rootFolder, bgTimeZone)
 	val BntWorldTV 	= new BntStation("BntWorldTV"	, rootFolder, bgTimeZone)
 	val NovaTV 		  = new NovaStation("NovaTV"		, rootFolder, bgTimeZone)
+  val Bnt1TV 		  = new BNT1Station("Bnt1TV"		, rootFolder, bgTimeZone)
 	//"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://68.68.22.79/live/_definst_/bgtvbtv --stop 14400 --timeout 240 -o "c:\temp\BTV_Rtmpdump_Test.flv"
 	
 	def main = {
@@ -462,7 +478,8 @@ object Scheduler extends App {
         getBnrArticles(Horizont		  , "http://bnr.bg/sites/horizont/Pages/ProgramScheme.aspx"),
         getBnrArticles(HristoBotev	, "http://bnr.bg/sites/hristobotev/Pages/ProgramScheme.aspx"),
         getBntWorldArticles(BntWorldTV),
-        DnevnikBgTvGuide(NovaTV, 99)
+        DnevnikBgTvGuide(NovaTV, 99),
+        DnevnikBgTvGuide(Bnt1TV, 93)
       )
       val subscriptions = scala.io.Source.fromFile(subscriptionFile, "utf-8").getLines.toList.filter(it => !it.startsWith("#") && it!="")
 
@@ -473,6 +490,7 @@ object Scheduler extends App {
       var targets = allTargets.filter(it => now.getTime.getTime <= it.start.getTime.getTime && it.start.getTime.getTime < tomorrow.getTime.getTime)
       if (testRarma)    targets = new Article(Horizont  , Calendar.getInstance, 1, "Rarma Тест") :: targets
       if (testRtmpdump) targets = new Article(BntWorldTV, Calendar.getInstance, 1, "Rtmpdump Тест") :: targets
+      if (testProxy)    targets = new Article(Bnt1TV, Calendar.getInstance, 1, "Proxy Тест") :: targets
       if (testVlc)      targets = new Article(NovaTV    , Calendar.getInstance, 5, "Vlc Тест") :: targets
 
       if (verbose) {
