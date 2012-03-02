@@ -149,47 +149,51 @@ object Scheduler extends App {
 
 		val monthMap = Map("Януари" -> 0, "Февруари" -> 1, "Март" -> 2, "Април" -> 3, "Май" -> 4, "Юни" -> 5, "Юли" -> 6, "Август" -> 7, "Септември" -> 8, "Октомври" -> 9, "Ноември" -> 10, "Декември" -> 11)
 
-		val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
-		val parser = parserFactory.newSAXParser
-		val source = new org.xml.sax.InputSource(url)
-		val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
-		val doc = adapter.loadXML(source, parser)
+    var articlesList = List.empty[Article]
+    try {
+      val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+      val parser = parserFactory.newSAXParser
+      val source = new org.xml.sax.InputSource(url)
+      val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+      val doc = adapter.loadXML(source, parser)
+
+      //println(findNodes(doc, isWeekDay))
+      val weekDays = findNodes(doc, (n: Node) => {
+          val x = n.attribute("class")
+          x!=None && x.get.toString.equals("week-day")
+      })
+
+      val articles = new ListBuffer[Article]
+      for(day <- weekDays) {
+        val date = findNodes(day, (n:Node) => { n.label.equals("span") }).head.text
+
+        val Some(myMatch) = """\((\d{1,2})\s(\S*)\s(\d\d\d\d)\)(.*)""".r.findFirstMatchIn(date)
+        val dayInt = myMatch.group(1).toInt
+        val monthInt = monthMap(myMatch.group(2))
+        val yearInt = myMatch.group(3).toInt
+
+        val scheduleNode = findNodes(day, (n:Node) => { n.label.equals("dl") }).head
+        val schedule = findNodes(scheduleNode, (n:Node) => {
+          n.label.equals("dt") || n.label.equals("dd")
+        }).toArray
+        val size = schedule.length
+
+        val p = """(.*):(.*)""".r
+        var i = 0
+        while (i<size) {
+          val p(h,m) = schedule(i).text
+          val article_start = Calendar.getInstance(station.timeZone)
+          article_start.set(yearInt, monthInt, dayInt, h.toInt, m.toInt, 0)
+          article_start.set(Calendar.MILLISECOND, 0)
+          articles += new Article(station, article_start, 0, schedule(i+1).text)
+          i += 2
+        }
+      }
+      articlesList = articles.toList
+      station.fixArticleDurations(articlesList)
+    }
+    catch { case e => println(e.getMessage)}
 		
-		//println(findNodes(doc, isWeekDay))
-		val weekDays = findNodes(doc, (n: Node) => {
-		    val x = n.attribute("class")
-		    x!=None && x.get.toString.equals("week-day")
-		})
-		
-	  val articles = new ListBuffer[Article]
-		for(day <- weekDays) {
-			val date = findNodes(day, (n:Node) => { n.label.equals("span") }).head.text
-			
-			val Some(myMatch) = """\((\d{1,2})\s(\S*)\s(\d\d\d\d)\)(.*)""".r.findFirstMatchIn(date)
-			val dayInt = myMatch.group(1).toInt
-			val monthInt = monthMap(myMatch.group(2))
-			val yearInt = myMatch.group(3).toInt
-			
-			val scheduleNode = findNodes(day, (n:Node) => { n.label.equals("dl") }).head
-			val schedule = findNodes(scheduleNode, (n:Node) => {
-				n.label.equals("dt") || n.label.equals("dd")
-			}).toArray
-			val size = schedule.length
-			
-			val p = """(.*):(.*)""".r
-			var i = 0
-			while (i<size) {
-				val p(h,m) = schedule(i).text 
-				val article_start = Calendar.getInstance(station.timeZone)
-				article_start.set(yearInt, monthInt, dayInt, h.toInt, m.toInt, 0)
-				article_start.set(Calendar.MILLISECOND, 0)
-				articles += new Article(station, article_start, 0, schedule(i+1).text)
-				i += 2
-			}
-		}
-		
-		var articlesList = articles.toList
-		station.fixArticleDurations(articlesList)
 		articlesList
 	}
 
@@ -302,13 +306,16 @@ object Scheduler extends App {
 		val externalID = Map(Horizont -> "10A1A3B1", HristoBotev -> "5EE5268D", BGRadio -> "3D410C8F")
 
 		override def run() = {
+      val rarmaRadio = System.getProperty("rarmaRadio")
+      assert(rarmaRadio!= null && new File(rarmaRadio).exists, "rarmaRadio executable is not found")
+
 			val df = new SimpleDateFormat("yyMMdd_HHmm")
 			df.setTimeZone(article.station.timeZone)
 			val timestamp = df.format(article.start.getTime)
 			val albumName = article.station.getFixedString(article.name)
 			val articleName = albumName + "_" +  timestamp
 			val filename = article.station.getFixedString(article.station.name) + "_" + articleName
-			val cmd = "\"" + System.getProperty("rarmaRadio") + "\" StationID=" + externalID(article.station.asInstanceOf[BnrStation]) + " Duration=" + (article.duration+article.station.timeAdvance+article.station.extraTime) + " Mute=true ActionEnd=CloseApp FileName=\"" + filename + "\" Tags=\"<genre>Radio</genre><song>" + articleName + "</song><album>" + albumName + "</album>\" Action=RecordOnlyNoSplit"
+			val cmd = "\"" + rarmaRadio + "\" StationID=" + externalID(article.station.asInstanceOf[BnrStation]) + " Duration=" + (article.duration+article.station.timeAdvance+article.station.extraTime) + " Mute=true ActionEnd=CloseApp FileName=\"" + filename + "\" Tags=\"<genre>Radio</genre><song>" + articleName + "</song><album>" + albumName + "</album>\" Action=RecordOnlyNoSplit"
 			println(cmd)
 			val p = Runtime.getRuntime().exec(cmd)
 //			p.waitFor
@@ -326,6 +333,12 @@ object Scheduler extends App {
 		}
 	
 		override def run() = {
+      val rtmpdump = System.getProperty("rtmpdump")
+      assert(rtmpdump!= null && new File(rtmpdump).exists, "rtmpdump executable is not found")
+      val sendSignal = System.getProperty("sendSignal")
+      assert(sendSignal!= null && new File(sendSignal).exists, "sendSignal executable is not found")
+
+
 			val sizePerMinute=4257000L
 			val df = new SimpleDateFormat("yyMMdd_HHmm")
 			df.setTimeZone(article.station.timeZone)
@@ -334,7 +347,7 @@ object Scheduler extends App {
 			val targetDurationInMin=article.duration+article.station.timeAdvance+article.station.extraTime
 			val targetSize=targetDurationInMin*sizePerMinute
 			val fullFileName = article.station.folder + "\\" + filename + ".flv"
-			val cmd = "\"" + System.getProperty("rtmpdump") + "\" -v -r " + rtmpUrl + " --quiet --stop 14400 --timeout 240 -o \"" + fullFileName + "\"" +
+			val cmd = "\"" + rtmpdump + "\" -v -r " + rtmpUrl + " --quiet --stop 14400 --timeout 240 -o \"" + fullFileName + "\"" +
         (if (pageUrl=="") "" else " -p \"" + pageUrl + "\"") +
         (if (socks=="") "" else " -S " + socks)
 
@@ -356,7 +369,7 @@ object Scheduler extends App {
 			val pid =scala.io.Source.fromInputStream(Runtime.getRuntime()
 					.exec("wmic PROCESS WHERE \"Caption='rtmpdump.exe' AND CommandLine like '%" + filename + "%'\" GET ProcessId /FORMAT:list")
 					.getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
-			Runtime.getRuntime().exec("\"" + System.getProperty("sendSignal") + "\" " + pid)
+			Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
 			println("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint-startPoint)/60000 + " minutes]")
 		}
 	} 
@@ -369,6 +382,9 @@ object Scheduler extends App {
 // C:\Users\nasko>"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://193.43.26.22/live/livestream1 --quiet --stop 14400 --timeout 240 -o "c:\temp\BntWorldTV_Rtmpdump_T_111206_0529.flv"
 
 		override def run() = {
+      val vlc = System.getProperty("vlc")
+      assert(vlc!= null && new File(vlc).exists, "vlc executable is not found")
+
 			val sizePerMinute=4257000L
 			val df = new SimpleDateFormat("yyMMdd_HHmm")
 			df.setTimeZone(article.station.timeZone)
@@ -377,7 +393,7 @@ object Scheduler extends App {
 			val targetDurationInMin=article.duration+article.station.timeAdvance+article.station.extraTime
 			val targetSize=targetDurationInMin*sizePerMinute
 			val fullFileName = article.station.folder + "\\" + filename + ".asf"
-			val cmd = "\"" + System.getProperty("vlc") + "\" -vvv " + vlcUrl + " :sout=#file{dst=" + fullFileName + "} :no-sout-rtp-sap :no-sout-standard-sap :ttl=1 :sout-keep --run-time=" + targetDurationInMin*60 + " --intf=dummy --dummy-quiet vlc://quit"
+			val cmd = "\"" + vlc + "\" -vvv " + vlcUrl + " :sout=#file{dst=" + fullFileName + "} :no-sout-rtp-sap :no-sout-standard-sap :ttl=1 :sout-keep --run-time=" + targetDurationInMin*60 + " --intf=dummy --dummy-quiet vlc://quit"
 			println(cmd + ", targetSize=" + targetSize + ", targetDuration=" + targetDurationInMin)
 			val p = Runtime.getRuntime().exec(cmd)
 			startGobblers(filename, p)
@@ -428,18 +444,6 @@ object Scheduler extends App {
     nextDay
   }
 
-	val rarmaRadio = System.getProperty("rarmaRadio")
-	assert(rarmaRadio!= null && new File(rarmaRadio).exists, "rarmaRadio executable is not found")
-	
-	val rtmpdump = System.getProperty("rtmpdump")
-	assert(rtmpdump!= null && new File(rtmpdump).exists, "rtmpdump executable is not found")
-
-	val vlc = System.getProperty("vlc")
-	assert(vlc!= null && new File(vlc).exists, "vlc executable is not found")
-
-	val sendSignal = System.getProperty("sendSignal")
-	assert(sendSignal!= null && new File(sendSignal).exists, "sendSignal executable is not found")
-
 	val subscriptionFile = System.getProperty("subscriptionFile")
 	assert(subscriptionFile!= null && new File(subscriptionFile).exists, "subscriptionFile is not found")
 	
@@ -474,14 +478,31 @@ object Scheduler extends App {
 	// Loop forever and wake up every night at 12am BG time
     while (true) {
       // Get all Articles and Subscriptions
+/*      
       val articles = List.concat(
-        getBnrArticles(Horizont		  , "http://bnr.bg/sites/horizont/Pages/ProgramScheme.aspx"),
-        getBnrArticles(HristoBotev	, "http://bnr.bg/sites/hristobotev/Pages/ProgramScheme.aspx"),
-        getBntWorldArticles(BntWorldTV),
-        DnevnikBgTvGuide(NovaTV, 99),
-        DnevnikBgTvGuide(Bnt1TV, 93)
+        getBnrArticles(Horizont		  , "http://bnr.bg/sites/horizont/Pages/ProgramScheme.aspx")
+//        getBnrArticles(HristoBotev	, "http://bnr.bg/sites/hristobotev/Pages/ProgramScheme.aspx"),
+//        getBntWorldArticles(BntWorldTV),
+//        DnevnikBgTvGuide(NovaTV, 99),
+//        DnevnikBgTvGuide(Bnt1TV, 93)
       )
       val subscriptions = scala.io.Source.fromFile(subscriptionFile, "utf-8").getLines.toList.filter(it => !it.startsWith("#") && it!="")
+*/
+      val subsIter = scala.io.Source.fromFile(subscriptionFile, "utf-8").getLines
+      subsIter.next
+      var subscriptions = List.empty[String]
+      while (subsIter.hasNext) {
+        val line:String = subsIter.next
+        if (!line.startsWith("#") && line!="") subscriptions = line :: subscriptions
+      }
+      val targetStations = subscriptions.map((s:String) => s.substring(0,s.indexOf(' '))).toSet
+      
+      var articles = List.empty[Article]
+      try { if (targetStations.contains("Horizont"   )) articles ++= getBnrArticles(Horizont, "http://bnr.bg/sites/horizont/Pages/ProgramScheme.aspx") } catch { case _ => None }
+      try { if (targetStations.contains("HristoBotev")) articles ++= getBnrArticles(HristoBotev	, "http://bnr.bg/sites/hristobotev/Pages/ProgramScheme.aspx") } catch { case _ => None }
+      try { if (targetStations.contains("BntWorldTV" )) articles ++= getBntWorldArticles(BntWorldTV) } catch { case _ => None }
+      try { if (targetStations.contains("NovaTV"     )) articles ++= DnevnikBgTvGuide(NovaTV, 99) } catch { case _ => None }
+      try { if (targetStations.contains("BNT1"       )) articles ++= DnevnikBgTvGuide(Bnt1TV, 93) } catch { case _ => None }
 
       // Get all Targets
       val now = Calendar.getInstance(bgTimeZone)
@@ -490,8 +511,8 @@ object Scheduler extends App {
       var targets = allTargets.filter(it => now.getTime.getTime <= it.start.getTime.getTime && it.start.getTime.getTime < tomorrow.getTime.getTime)
       if (testRarma)    targets = new Article(Horizont  , Calendar.getInstance, 1, "Rarma Тест") :: targets
       if (testRtmpdump) targets = new Article(BntWorldTV, Calendar.getInstance, 1, "Rtmpdump Тест") :: targets
-      if (testProxy)    targets = new Article(Bnt1TV, Calendar.getInstance, 1, "Proxy Тест") :: targets
-      if (testVlc)      targets = new Article(NovaTV    , Calendar.getInstance, 5, "Vlc Тест") :: targets
+      if (testProxy)    targets = new Article(Bnt1TV    , Calendar.getInstance, 1, "Proxy Тест") :: targets
+      if (testVlc)      targets = new Article(NovaTV    , Calendar.getInstance, 1, "Vlc Тест") :: targets
 
       if (verbose) {
         println("--- Articles ---")		;articles.foreach(println)
