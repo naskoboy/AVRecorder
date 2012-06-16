@@ -8,12 +8,15 @@ import java.util.Date
 import java.text.SimpleDateFormat
 import java.util.TimeZone
 import java.util.Calendar
+import nasko.avrecorder.Scheduler.{vlcAudioTimerTask, rarmaTimerTask}
 import org.xml.sax.InputSource
 import scala.xml._
 import scala.collection.mutable.ListBuffer
 import java.util.Scanner
 import java.io.InputStream
+import org.farng.mp3.{MP3File, TagConstant, TagOptionSingleton}
 
+//import org.blinkenlights.jid3.{MP3File, MediaFile}
 abstract class Station(val name:String, val folder:String, val timeZone:TimeZone, val timeAdvance:Int, val extraTime:Int) {
 	def getRecorderTimerTask(article:Article) : TimerTask
 	
@@ -41,6 +44,17 @@ abstract class Station(val name:String, val folder:String, val timeZone:TimeZone
 		}
 		sb.toString
 	}
+
+  def setTime(c:Calendar, hour:Int, minute:Int) = {
+    val c2 = c.clone.asInstanceOf[Calendar]
+    c2.set(Calendar.HOUR_OF_DAY, hour)
+    c2.set(Calendar.MINUTE, minute)
+    c2.set(Calendar.SECOND,0)
+    c2.set(Calendar.MILLISECOND,0)
+    c2
+  }
+
+  def newArticle(name:String, startHour: Int, startMinute:Int, duration: Int) = new Article(this, setTime(Calendar.getInstance(timeZone), startHour, startMinute), duration, name)
 
 	def fixArticleDurations(l: List[Article]):Unit = {
 		var h = l.head
@@ -323,9 +337,13 @@ object Scheduler extends App {
 		}
 	}
 
-	class rtmpTimerTask(rtmpUrl:String, article:Article, pageUrl:String, socks:String) extends TimerTask {
+  def getPID(fingerprint:String) = scala.io.Source.fromInputStream(Runtime.getRuntime()
+      .exec("wmic PROCESS WHERE \"Caption='rtmpdump.exe' AND CommandLine like '%" + fingerprint + "%'\" GET ProcessId /FORMAT:list")
+      .getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
 
-    def this(rtmpUrl:String, article:Article) = this(rtmpUrl, article, "", "")
+	class rtmpTimerTask(rtmpUrl:String, article:Article, sizePerMinute:Long, pageUrl:String, socks:String) extends TimerTask {
+
+    def this(rtmpUrl:String, article:Article, sizePerMinute:Long) = this(rtmpUrl, article, sizePerMinute, "", "")
 
 		def startGobblers(id:String, p:Process) : Unit = {
 			new Gobbler(id+",STDOUT:"  , p.getInputStream, false).start
@@ -339,7 +357,7 @@ object Scheduler extends App {
       assert(sendSignal!= null && new File(sendSignal).exists, "sendSignal executable is not found")
 
 
-			val sizePerMinute=4257000L
+			//val sizePerMinute=4257000L
 			val df = new SimpleDateFormat("yyMMdd_HHmm")
 			df.setTimeZone(article.station.timeZone)
 			val timestamp = df.format(article.start.getTime)
@@ -374,48 +392,76 @@ object Scheduler extends App {
 		}
 	} 
 
-	class vlcTimerTask(vlcUrl:String, article:Article) extends TimerTask {
-		def startGobblers(id:String, p:Process) : Unit = {
-			new Gobbler(id+",STDOUT:"  , p.getInputStream, true).start
-			new Gobbler(id+",STDERROR:", p.getErrorStream, true).start
-		}
+  class vlcAudioTimerTask(vlcUrl:String, article:Article) extends TimerTask {
+    def startGobblers(id:String, p:Process) : Unit = {
+      new Gobbler(id+",STDOUT:"  , p.getInputStream, true).start
+      new Gobbler(id+",STDERROR:", p.getErrorStream, true).start
+    }
 // C:\Users\nasko>"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://193.43.26.22/live/livestream1 --quiet --stop 14400 --timeout 240 -o "c:\temp\BntWorldTV_Rtmpdump_T_111206_0529.flv"
 
-		override def run() = {
+    override def run() = {
       val vlc = System.getProperty("vlc")
       assert(vlc!= null && new File(vlc).exists, "vlc executable is not found")
 
-			val sizePerMinute=4257000L
-			val df = new SimpleDateFormat("yyMMdd_HHmm")
-			df.setTimeZone(article.station.timeZone)
-			val timestamp = df.format(article.start.getTime)
-			val filename = article.station.getFixedString(article.station.name) + "_" + article.station.getFixedString(article.name) + "_" + timestamp
-			val targetDurationInMin=article.duration+article.station.timeAdvance+article.station.extraTime
-			val targetSize=targetDurationInMin*sizePerMinute
-			val fullFileName = article.station.folder + "\\" + filename + ".asf"
-			val cmd = "\"" + vlc + "\" -vvv " + vlcUrl + " :sout=#file{dst=" + fullFileName + "} :no-sout-rtp-sap :no-sout-standard-sap :ttl=1 :sout-keep --run-time=" + targetDurationInMin*60 + " --intf=dummy --dummy-quiet vlc://quit"
-			println(cmd + ", targetSize=" + targetSize + ", targetDuration=" + targetDurationInMin)
-			val p = Runtime.getRuntime().exec(cmd)
-			startGobblers(filename, p)
-		}
-	} 
+//      val sizePerMinute=4257000L
+      val df = new SimpleDateFormat("yyMMdd_HHmm")
+      df.setTimeZone(article.station.timeZone)
+      val timestamp = df.format(article.start.getTime)
+      val filename = article.station.getFixedString(article.station.name) + "_" + article.station.getFixedString(article.name) + "_" + timestamp
+      val targetDurationInMin=article.duration+article.station.timeAdvance+article.station.extraTime
+//      val targetSize=targetDurationInMin*sizePerMinute
+      val fullFileName = article.station.folder + "\\" + filename + ".mp3"
+      val cmd = "\"" + vlc + "\" " + vlcUrl + " --sout \"#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}\" --run-time=" + targetDurationInMin*60 + " --intf=dummy --dummy-quiet vlc://quit"
+      println(cmd + ", targetSize=?, targetDuration=" + targetDurationInMin)
+      val p = Runtime.getRuntime().exec(cmd)
+      startGobblers(filename, p)
+/*
+      Thread.sleep(targetDurationInMin*60*1000+ 10000)
+      val endPoint=Calendar.getInstance.getTimeInMillis
 
-	class BnrStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 0, 10) {
-		override def getRecorderTimerTask(article:Article) : TimerTask = new rarmaTimerTask(article)
+      http://resource.dopus.com/viewtopic.php?f=18&t=12351
+      val s: String = "\"c:\\Users\\nasko\\My Apps\\id3.exe\" -t testabc \"" + fullFileName + "\""
+      println(s)
+      Runtime.getRuntime().exec(s)
+*/
+/*
+      TagOptionSingleton.getInstance().setDefaultSaveMode(TagConstant.MP3_FILE_SAVE_OVERWRITE)
+
+      val oSourceFile = new File(fullFileName);
+      val oMediaFile = new MP3File(oSourceFile);
+      val oID3V2_3_0Tag = new ID3V2_3_0Tag();
+      oID3V2_3_0Tag.setAlbum("Album1");  // sets TALB frame
+      //oID3V2_3_0Tag.setArtist("Artist2");  // sets TPE1 frame
+      //oID3V2_3_0Tag.setComment("Comment3");  // sets COMM frame with language "eng" and no description
+      oID3V2_3_0Tag.setGenre("Blues4");  // sets TCON frame
+      oID3V2_3_0Tag.setTitle(article.name);  // sets TIT2 frame
+      //oID3V2_3_0Tag.setYear(1999);  // sets TYER frame
+      oMediaFile.setID3Tag(oID3V2_3_0Tag);
+      oMediaFile.sync();
+*/
+
+//"C:\Program Files\VideoLAN\VLC\vlc.exe" http://streaming.bnr.bg/HristoBotev :sout=#transcode{acodec=mp3,ab=128,TIT2="test1"}:std{access=file,mux=dummy,dst="e:\temp\test1.mp3",Title="title2"} --run-time=60 --intf=dummy --dummy-quiet vlc://quit
+    }
+  }
+
+	class BnrStation(name:String, url:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 0, 0) {
+		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask(url, article)
 	}
 	
 	class BntStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5, 5) {
-		override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article)
+		override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article, 4257000L)
 	}
 
   class BNT1Station(name:String, folder:String, timeZone:TimeZone) extends Station("BNT1", folder, timeZone, 5, 5) {
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://edge2.evolink.net:2020/fls/bnt.stream", article, "http://tv.bnt.bg/bnt1/", "vanja.gotdns.com:1080")
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://edge2.evolink.net:2020/fls/bnt.stream", article, 4257000L, "http://tv.bnt.bg/bnt1/", "vanja.gotdns.com:1080")
   }
 
 // C:\Users\nasko>"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://edge2.evolink.net:2020/fls/bnt.stream --stop 20 --timeout 240 -o "c:\temp\Test1.flv" -p "http://tv.bnt.bg/bnt1/" -S vanja.gotdns.com:1080 -V
 
 	class NovaStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5,5) {
-		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
+//		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://31.13.218.243/rtplive/mp4:nova_1000kbps.stream", article, 8574328L)
+    // 8519686L ()
 	}
 
 	def findTargets(articles: List[Article], subscriptions: List[String]) : (List[Article],List[String]) = {
@@ -465,10 +511,13 @@ object Scheduler extends App {
 	val testVlcProperty = System.getProperty("testVlc")
 	val testVlc = testVlcProperty!=null && testVlcProperty.toBoolean
 
+  val testHorizontProperty = System.getProperty("testHorizont")
+  val testHorizont = testHorizontProperty!=null && testHorizontProperty.toBoolean
+
 	val bgTimeZone  = TimeZone.getTimeZone("Europe/Sofia")
-	val Horizont 	  = new BnrStation("Horizont"	  , rootFolder, bgTimeZone)
-	val HristoBotev = new BnrStation("HristoBotev", rootFolder, bgTimeZone)
-	val BGRadio 	  = new BnrStation("BGRadio"		, rootFolder, bgTimeZone)
+	val Horizont 	  = new BnrStation("Horizont"	  , "http://streaming.bnr.bg/Horizont", rootFolder, bgTimeZone)
+	val HristoBotev = new BnrStation("HristoBotev", "http://streaming.bnr.bg/HristoBotev", rootFolder, bgTimeZone)
+	val BGRadio 	  = new BnrStation("BGRadio"		, "http://62.204.145.218:8000/bgradio128.m3u", rootFolder, bgTimeZone)
 	val BntWorldTV 	= new BntStation("BntWorldTV"	, rootFolder, bgTimeZone)
 	val NovaTV 		  = new NovaStation("NovaTV"		, rootFolder, bgTimeZone)
   val Bnt1TV 		  = new BNT1Station("Bnt1TV"		, rootFolder, bgTimeZone)
@@ -513,6 +562,9 @@ object Scheduler extends App {
       if (testRtmpdump) targets = new Article(BntWorldTV, Calendar.getInstance, 1, "Rtmpdump Тест") :: targets
       if (testProxy)    targets = new Article(Bnt1TV    , Calendar.getInstance, 1, "Proxy Тест") :: targets
       if (testVlc)      targets = new Article(NovaTV    , Calendar.getInstance, 1, "Vlc Тест") :: targets
+      if (testHorizont) targets = new Article(Horizont   , Calendar.getInstance, 1, "Horizont Тест") :: targets
+
+      //targets = HristoBotev.newArticle("Vreme za prikazka", 18, 20, 10) :: targets
 
       if (verbose) {
         println("--- Articles ---")		;articles.foreach(println)
@@ -538,6 +590,5 @@ object Scheduler extends App {
 	}
 
 	main
-// DnevnikBgTvGuide(NovaTV, 99) foreach println _
 
 }
