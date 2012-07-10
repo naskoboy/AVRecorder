@@ -14,7 +14,7 @@ import scala.xml._
 import scala.collection.mutable.ListBuffer
 import java.util.Scanner
 import java.io.InputStream
-import org.farng.mp3.{MP3File, TagConstant, TagOptionSingleton}
+//import org.farng.mp3.{MP3File, TagConstant, TagOptionSingleton}
 
 //import org.blinkenlights.jid3.{MP3File, MediaFile}
 abstract class Station(val name:String, val folder:String, val timeZone:TimeZone, val timeAdvance:Int, val extraTime:Int) {
