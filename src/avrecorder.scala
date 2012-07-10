@@ -8,7 +8,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 import java.util.TimeZone
 import java.util.Calendar
-import nasko.avrecorder.Scheduler.{vlcAudioTimerTask, rarmaTimerTask}
+//import nasko.avrecorder.Scheduler.{vlcAudioTimerTask, rarmaTimerTask}
 import org.xml.sax.InputSource
 import scala.xml._
 import scala.collection.mutable.ListBuffer
@@ -142,6 +142,11 @@ class Gobbler(id:String, is:InputStream, suppress:Boolean) extends Thread {
 
 
 object Scheduler extends App {
+
+  def getPID(appName:String, filename:String) = scala.io.Source.fromInputStream(Runtime.getRuntime()
+        .exec("wmic PROCESS WHERE \"Caption='" + appName + "' AND CommandLine like '%" + filename + "%'\" GET ProcessId /FORMAT:list")
+        .getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
+
 
 	def sorter(a:Article,b:Article) = { a.start.compareTo(b.start)<0 }
 	
@@ -337,10 +342,6 @@ object Scheduler extends App {
 		}
 	}
 
-  def getPID(fingerprint:String) = scala.io.Source.fromInputStream(Runtime.getRuntime()
-      .exec("wmic PROCESS WHERE \"Caption='rtmpdump.exe' AND CommandLine like '%" + fingerprint + "%'\" GET ProcessId /FORMAT:list")
-      .getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
-
 	class rtmpTimerTask(rtmpUrl:String, article:Article, sizePerMinute:Long, pageUrl:String, socks:String) extends TimerTask {
 
     def this(rtmpUrl:String, article:Article, sizePerMinute:Long) = this(rtmpUrl, article, sizePerMinute, "", "")
@@ -384,9 +385,12 @@ object Scheduler extends App {
 			}
 			val endPoint=Calendar.getInstance.getTimeInMillis
 			// https://www-304.ibm.com/support/docview.wss?uid=swg21468390&wv=1
+      val pid = Scheduler.getPID("rtmpdump.exe",filename)
+/*
 			val pid =scala.io.Source.fromInputStream(Runtime.getRuntime()
 					.exec("wmic PROCESS WHERE \"Caption='rtmpdump.exe' AND CommandLine like '%" + filename + "%'\" GET ProcessId /FORMAT:list")
 					.getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
+*/
 			Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
 			println("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint-startPoint)/60000 + " minutes]")
 		}
@@ -402,6 +406,8 @@ object Scheduler extends App {
     override def run() = {
       val vlc = System.getProperty("vlc")
       assert(vlc!= null && new File(vlc).exists, "vlc executable is not found")
+      val sendSignal = System.getProperty("sendSignal")
+      assert(sendSignal!= null && new File(sendSignal).exists, "sendSignal executable is not found")
 
 //      val sizePerMinute=4257000L
       val df = new SimpleDateFormat("yyMMdd_HHmm")
@@ -411,10 +417,17 @@ object Scheduler extends App {
       val targetDurationInMin=article.duration+article.station.timeAdvance+article.station.extraTime
 //      val targetSize=targetDurationInMin*sizePerMinute
       val fullFileName = article.station.folder + "\\" + filename + ".mp3"
-      val cmd = "\"" + vlc + "\" " + vlcUrl + " --sout \"#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}\" --run-time=" + targetDurationInMin*60 + " --intf=dummy --dummy-quiet vlc://quit"
+      val cmd = "\"" + vlc + "\" " + vlcUrl + " --sout \"#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}\" --run-time=" + 120*60 + " --intf=dummy --dummy-quiet vlc://quit"
       println(cmd + ", targetSize=?, targetDuration=" + targetDurationInMin)
+      val startPoint=Calendar.getInstance.getTimeInMillis
       val p = Runtime.getRuntime().exec(cmd)
       startGobblers(filename, p)
+      val pid = Scheduler.getPID("vlc.exe",filename)
+      Thread.sleep(targetDurationInMin*60*1000)
+      Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
+      val endPoint=Calendar.getInstance.getTimeInMillis
+      println("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint-startPoint)/60000 + " minutes]")
+
 /*
       Thread.sleep(targetDurationInMin*60*1000+ 10000)
       val endPoint=Calendar.getInstance.getTimeInMillis
@@ -460,7 +473,7 @@ object Scheduler extends App {
 
 	class NovaStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5,5) {
 //		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://31.13.218.243/rtplive/mp4:nova_1000kbps.stream", article, 8574328L)
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://31.13.218.243/rtplive/mp4:nova_1000kbps.stream", article, 8574328L,"http://novatv.bg/live","")
     // 8519686L ()
 	}
 
@@ -574,7 +587,7 @@ object Scheduler extends App {
       }
 
       // schedule all targets
-      println("------")
+      println("-------")
       targets.foreach(a => {
         val adjusted_start = a.start.clone.asInstanceOf[Calendar]
         adjusted_start.add(Calendar.MINUTE, -a.station.timeAdvance)
@@ -589,6 +602,14 @@ object Scheduler extends App {
 
 	}
 
+  def test = {
+    val r = Runtime.getRuntime
+          val tag = new String("title=xcv".getBytes(), "UTF-8")
+    val arg = List("c:\\users\\nasko\\My Apps\\tag.exe","-u", tag ,"c:\\temp\\Horizont_Horizont_Test_120626_0557.mp3")
+    r.exec(arg.toArray)
+  }
+
 	main
+//  test
 
 }
