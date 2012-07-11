@@ -1,3 +1,5 @@
+package nasko.avrecorder
+
 import collection.mutable.ListBuffer
 import scala.Predef._
 import xml.Node
@@ -26,5 +28,8 @@ object Utils {
       for (n <- node.child) printDoc(n)
     }
 
+  def getPID(appName:String, filename:String) = scala.io.Source.fromInputStream(Runtime.getRuntime()
+        .exec("wmic PROCESS WHERE \"Caption='" + appName + "' AND CommandLine like '%" + filename + "%'\" GET ProcessId /FORMAT:list")
+        .getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
 
 }

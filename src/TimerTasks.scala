@@ -48,7 +48,7 @@ class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, page
     }
     val endPoint = Calendar.getInstance.getTimeInMillis
     // https://www-304.ibm.com/support/docview.wss?uid=swg21468390&wv=1
-    val pid = Scheduler.getPID("rtmpdump.exe", filename)
+    val pid = Utils.getPID("rtmpdump.exe", filename)
     /*
           val pid =scala.io.Source.fromInputStream(Runtime.getRuntime()
               .exec("wmic PROCESS WHERE \"Caption='rtmpdump.exe' AND CommandLine like '%" + filename + "%'\" GET ProcessId /FORMAT:list")
@@ -86,7 +86,7 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     val startPoint = Calendar.getInstance.getTimeInMillis
     val p = Runtime.getRuntime().exec(cmd)
     startGobblers(filename, p)
-    val pid = Scheduler.getPID("vlc.exe", filename)
+    val pid = Utils.getPID("vlc.exe", filename)
     Thread.sleep(targetDurationInMin * 60 * 1000)
     Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
     val endPoint = Calendar.getInstance.getTimeInMillis
@@ -101,22 +101,6 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
           println(s)
           Runtime.getRuntime().exec(s)
     */
-    /*
-          TagOptionSingleton.getInstance().setDefaultSaveMode(TagConstant.MP3_FILE_SAVE_OVERWRITE)
-
-          val oSourceFile = new File(fullFileName);
-          val oMediaFile = new MP3File(oSourceFile);
-          val oID3V2_3_0Tag = new ID3V2_3_0Tag();
-          oID3V2_3_0Tag.setAlbum("Album1");  // sets TALB frame
-          //oID3V2_3_0Tag.setArtist("Artist2");  // sets TPE1 frame
-          //oID3V2_3_0Tag.setComment("Comment3");  // sets COMM frame with language "eng" and no description
-          oID3V2_3_0Tag.setGenre("Blues4");  // sets TCON frame
-          oID3V2_3_0Tag.setTitle(article.name);  // sets TIT2 frame
-          //oID3V2_3_0Tag.setYear(1999);  // sets TYER frame
-          oMediaFile.setID3Tag(oID3V2_3_0Tag);
-          oMediaFile.sync();
-    */
-
     //"C:\Program Files\VideoLAN\VLC\vlc.exe" http://streaming.bnr.bg/HristoBotev :sout=#transcode{acodec=mp3,ab=128,TIT2="test1"}:std{access=file,mux=dummy,dst="e:\temp\test1.mp3",Title="title2"} --run-time=60 --intf=dummy --dummy-quiet vlc://quit
   }
 }
