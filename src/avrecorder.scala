@@ -13,18 +13,6 @@ import java.io.InputStream
 //import org.farng.mp3.{MP3File, TagConstant, TagOptionSingleton}
 //import org.blinkenlights.jid3.{MP3File, MediaFile}
 
-
-class Gobbler(id:String, is:InputStream, suppress:Boolean) extends Thread {
-	override def run() = {
-		val sc=new Scanner(is)
-		while(sc.hasNext) {
-      val line = sc.nextLine
-      if (!suppress) println(id+line)
-    }
-	}	 
-}
-
-
 object Scheduler extends App {
 
 	def sorter(a:Article,b:Article) = { a.start.compareTo(b.start)<0 }

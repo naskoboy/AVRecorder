@@ -1,9 +1,18 @@
 package nasko.avrecorder
 
-import java.io.File
+import java.io.{InputStream, File}
 import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.TimerTask
+import java.util.{Scanner, Calendar, TimerTask}
+
+class Gobbler(id:String, is:InputStream, suppress:Boolean) extends Thread {
+	override def run() = {
+		val sc=new Scanner(is)
+		while(sc.hasNext) {
+      val line = sc.nextLine
+      if (!suppress) println(id+line)
+    }
+	}
+}
 
 class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, pageUrl: String, socks: String) extends TimerTask {
 
@@ -19,7 +28,6 @@ class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, page
     assert(rtmpdump != null && new File(rtmpdump).exists, "rtmpdump executable is not found")
     val sendSignal = System.getProperty("sendSignal")
     assert(sendSignal != null && new File(sendSignal).exists, "sendSignal executable is not found")
-
 
     //val sizePerMinute=4257000L
     val df = new SimpleDateFormat("yyMMdd_HHmm")
