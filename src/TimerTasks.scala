@@ -24,9 +24,9 @@ class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, page
   }
 
   override def run() = {
-    val rtmpdump = System.getProperty("rtmpdump")
+    val rtmpdump = Scheduler.userDir + "\\apps\\rtmpdump.exe" //System.getProperty("rtmpdump")
     assert(rtmpdump != null && new File(rtmpdump).exists, "rtmpdump executable is not found")
-    val sendSignal = System.getProperty("sendSignal")
+    val sendSignal = Scheduler.userDir + "\\apps\\sendSignal.exe"
     assert(sendSignal != null && new File(sendSignal).exists, "sendSignal executable is not found")
 
     //val sizePerMinute=4257000L
@@ -47,12 +47,14 @@ class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, page
     val p = Runtime.getRuntime().exec(cmd)
     startGobblers(filename, p)
     Thread.sleep(targetDurationInMin * 60 * 1000)
-    var done = false
-    val file = new File(fullFileName)
-    while (!done) {
-      val whatIsLeft = targetSize - file.length
-      if (whatIsLeft > 0) Thread.sleep(((whatIsLeft / sizePerMinute) + 1) * 60 * 1000)
-      else done = true
+    if (sizePerMinute>0) {
+      var done = false
+      val file = new File(fullFileName)
+      while (!done) {
+        val whatIsLeft = targetSize - file.length
+        if (whatIsLeft > 0) Thread.sleep(((whatIsLeft / sizePerMinute) + 1) * 60 * 1000)
+        else done = true
+      }
     }
     val endPoint = Calendar.getInstance.getTimeInMillis
     // https://www-304.ibm.com/support/docview.wss?uid=swg21468390&wv=1
@@ -78,7 +80,7 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
   override def run() = {
     val vlc = System.getProperty("vlc")
     assert(vlc != null && new File(vlc).exists, "vlc executable is not found")
-    val sendSignal = System.getProperty("sendSignal")
+    val sendSignal = Scheduler.userDir + "\\apps\\sendSignal.exe"
     assert(sendSignal != null && new File(sendSignal).exists, "sendSignal executable is not found")
 
     //      val sizePerMinute=4257000L

@@ -60,7 +60,7 @@ object Scheduler extends App {
       date.add(Calendar.DATE, 1)
     }
     var articlesList = articles.toList
-    articlesList = articlesList.sortWith(Scheduler.sorter)
+    articlesList = articlesList.sortWith(sorter)
     station.fixArticleDurations(articlesList)
     articlesList
 	}
@@ -82,7 +82,7 @@ object Scheduler extends App {
 
 	class NovaStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5,5) {
 //		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://31.13.218.243/rtplive/mp4:nova_1000kbps.stream", article, 8574328L,"http://novatv.bg/live","")
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://31.13.218.243/rtplive/mp4:nova_1000kbps.stream", article, 0 /*8574328L*/,"http://novatv.bg/live","")
     // 8519686L ()
 	}
 
@@ -112,7 +112,10 @@ object Scheduler extends App {
     nextDay
   }
 
-	val subscriptionFile = System.getProperty("subscriptionFile")
+  var userDir = System.getProperty("my.user.dir")
+  if (userDir==null) userDir = System.getProperty("user.dir")
+
+	val subscriptionFile = userDir + "\\subscriptions.txt"
 	assert(subscriptionFile!= null && new File(subscriptionFile).exists, "subscriptionFile is not found")
 	
 	val rootFolder = System.getProperty("rootFolder")
@@ -130,8 +133,8 @@ object Scheduler extends App {
   val testRtmpdumpProperty = System.getProperty("testRtmpdump")
   val testRtmpdump = testRtmpdumpProperty!=null && testRtmpdumpProperty.toBoolean
 
-	val testVlcProperty = System.getProperty("testVlc")
-	val testVlc = testVlcProperty!=null && testVlcProperty.toBoolean
+	val testNovaProperty = System.getProperty("testNova")
+	val testNova = testNovaProperty!=null && testNovaProperty.toBoolean
 
   val testHorizontProperty = System.getProperty("testHorizont")
   val testHorizont = testHorizontProperty!=null && testHorizontProperty.toBoolean
@@ -183,7 +186,7 @@ object Scheduler extends App {
       if (testRarma)    targets = new Article(Horizont  , Calendar.getInstance, 1, "Rarma Тест") :: targets
       if (testRtmpdump) targets = new Article(BntWorldTV, Calendar.getInstance, 1, "Rtmpdump Тест") :: targets
       if (testProxy)    targets = new Article(Bnt1TV    , Calendar.getInstance, 1, "Proxy Тест") :: targets
-      if (testVlc)      targets = new Article(NovaTV    , Calendar.getInstance, 1, "Vlc Тест") :: targets
+      if (testNova)     targets = new Article(NovaTV    , Calendar.getInstance, 1, "Nova Тест") :: targets
       if (testHorizont) targets = new Article(Horizont   , Calendar.getInstance, 1, "Horizont Тест") :: targets
 
       //targets = HristoBotev.newArticle("Vreme za prikazka", 18, 20, 10) :: targets
@@ -218,6 +221,7 @@ object Scheduler extends App {
     r.exec(arg.toArray)
   }
 
+//  println(System.getProperty("my.user.dir"))
 	main
 //  test
 
