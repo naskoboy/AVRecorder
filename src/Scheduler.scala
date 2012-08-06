@@ -8,8 +8,8 @@ import java.util.TimeZone
 import java.util.Calendar
 import scala.xml._
 import scala.collection.mutable.ListBuffer
-import java.util.Scanner
-import java.io.InputStream
+import org.apache.log4j.{FileAppender, Logger, PropertyConfigurator}
+
 //import org.farng.mp3.{MP3File, TagConstant, TagOptionSingleton}
 //import org.blinkenlights.jid3.{MP3File, MediaFile}
 
@@ -71,7 +71,7 @@ object Scheduler extends App {
 	}
 	
 	class BntStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5, 5) {
-		override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article, 4257000L)
+		override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article, 0 /*4257000L*/)
 	}
 
   class BNT1Station(name:String, folder:String, timeZone:TimeZone) extends Station("BNT1", folder, timeZone, 5, 5) {
@@ -151,6 +151,7 @@ object Scheduler extends App {
 	def main = {
 	// Loop forever and wake up every night at 12am BG time
     while (true) {
+      logger.info("-- START --")
       // Get all Articles and Subscriptions
 /*      
       val articles = List.concat(
@@ -203,7 +204,7 @@ object Scheduler extends App {
       targets.foreach(a => {
         val adjusted_start = a.start.clone.asInstanceOf[Calendar]
         adjusted_start.add(Calendar.MINUTE, -a.station.timeAdvance)
-        println("Scheduled for local time " + new SimpleDateFormat("MM-dd-yyyy HH:mm").format(adjusted_start.getTime) + " (" + a + ")")
+        logger.info("Scheduled for local time " + new SimpleDateFormat("MM-dd-yyyy HH:mm").format(adjusted_start.getTime) + " (" + a + ")")
         new Timer().schedule(a.station.getRecorderTimerTask(a), adjusted_start.getTime)
       })
 
@@ -220,6 +221,16 @@ object Scheduler extends App {
     val arg = List("c:\\users\\nasko\\My Apps\\tag.exe","-u", tag ,"c:\\temp\\Horizont_Horizont_Test_120626_0557.mp3")
     r.exec(arg.toArray)
   }
+
+  val appender = new FileAppender
+  appender.setFile(userDir + "\\AVRecorder.log", true, false, 10)
+  appender.setLayout(new org.apache.log4j.PatternLayout("%d - %m%n"))
+  val logger = Logger.getLogger(Scheduler.getClass.getCanonicalName)
+  logger.addAppender(appender)
+
+//  PropertyConfigurator.configure("log4j.properties")
+//  logger.debug("Sample debug message")
+//  logger.info("info")
 
 //  println(System.getProperty("my.user.dir"))
 	main

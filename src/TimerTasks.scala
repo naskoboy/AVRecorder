@@ -42,7 +42,7 @@ class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, page
       (if (socks == "") "" else " -S " + socks)
 
     // --stop " + durationInSec + "
-    println(cmd + ", targetSize=" + targetSize + ", targetDuration=" + targetDurationInMin)
+    Scheduler.logger.info(cmd + ", targetSize=" + targetSize + ", targetDuration=" + targetDurationInMin)
     val startPoint = Calendar.getInstance.getTimeInMillis
     val p = Runtime.getRuntime().exec(cmd)
     startGobblers(filename, p)
@@ -65,7 +65,7 @@ class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, page
               .getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
     */
     Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
-    println("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint - startPoint) / 60000 + " minutes]")
+    Scheduler.logger.info("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint - startPoint) / 60000 + " minutes]")
   }
 }
 
@@ -92,7 +92,7 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     //      val targetSize=targetDurationInMin*sizePerMinute
     val fullFileName = article.station.folder + "\\" + filename + ".mp3"
     val cmd = "\"" + vlc + "\" " + vlcUrl + " --sout \"#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}\" --run-time=" + 120 * 60 + " --intf=dummy --dummy-quiet vlc://quit"
-    println(cmd + ", targetSize=?, targetDuration=" + targetDurationInMin)
+    Scheduler.logger.info(cmd + ", targetSize=?, targetDuration=" + targetDurationInMin)
     val startPoint = Calendar.getInstance.getTimeInMillis
     val p = Runtime.getRuntime().exec(cmd)
     startGobblers(filename, p)
@@ -100,7 +100,7 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     Thread.sleep(targetDurationInMin * 60 * 1000)
     Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
     val endPoint = Calendar.getInstance.getTimeInMillis
-    println("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint - startPoint) / 60000 + " minutes]")
+    Scheduler.logger.info("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint - startPoint) / 60000 + " minutes]")
 
     /*
           Thread.sleep(targetDurationInMin*60*1000+ 10000)
