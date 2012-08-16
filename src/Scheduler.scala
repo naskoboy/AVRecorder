@@ -8,7 +8,7 @@ import java.util.TimeZone
 import java.util.Calendar
 import scala.xml._
 import scala.collection.mutable.ListBuffer
-import org.apache.log4j.{FileAppender, Logger, PropertyConfigurator}
+import org.apache.log4j._
 
 //import org.farng.mp3.{MP3File, TagConstant, TagOptionSingleton}
 //import org.blinkenlights.jid3.{MP3File, MediaFile}
@@ -66,7 +66,7 @@ object Scheduler extends App {
 	}
 
 
-	class BnrStation(name:String, url:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 0, 0) {
+	class BnrStation(name:String, url:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 3, 0) {
 		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask(url, article)
 	}
 	
@@ -224,9 +224,12 @@ object Scheduler extends App {
 
   val appender = new FileAppender
   appender.setFile(userDir + "\\AVRecorder.log", true, false, 10)
-  appender.setLayout(new org.apache.log4j.PatternLayout("%d - %m%n"))
+  val layout = new org.apache.log4j.PatternLayout("%d - %m%n")
+  appender.setLayout(layout)
+
   val logger = Logger.getLogger(Scheduler.getClass.getCanonicalName)
   logger.addAppender(appender)
+  logger.addAppender(new ConsoleAppender(layout))
 
 //  PropertyConfigurator.configure("log4j.properties")
 //  logger.debug("Sample debug message")
