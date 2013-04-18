@@ -66,7 +66,7 @@ object Scheduler extends App {
 	}
 
 
-	class BnrStation(name:String, url:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 3, 0) {
+	class BnrStation(name:String, url:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 0, 0) {
 		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask(url, article)
 	}
 	
@@ -82,7 +82,7 @@ object Scheduler extends App {
 
 	class NovaStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5,5) {
 //		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://31.13.218.243/rtplive/mp4:nova_1000kbps.stream", article, 0 /*8574328L*/,"http://novatv.bg/live","")
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://31.13.218.242/rtplive/mp4:nova_1000kbps.stream", article, 0 /*8574328L*/,"http://novatv.bg/live","")
     // 8519686L ()
 	}
 

@@ -82,12 +82,15 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     assert(vlc != null && new File(vlc).exists, "vlc executable is not found")
     val sendSignal = Scheduler.userDir + "\\apps\\sendSignal.exe"
     assert(sendSignal != null && new File(sendSignal).exists, "sendSignal executable is not found")
+    val id3 = Scheduler.userDir + "\\apps\\id3.exe"
+    assert(id3 != null && new File(id3).exists, "id3 executable is not found")
 
     //      val sizePerMinute=4257000L
     val df = new SimpleDateFormat("yyMMdd_HHmm")
     df.setTimeZone(article.station.timeZone)
     val timestamp = df.format(article.start.getTime)
-    val filename = article.station.getFixedString(article.station.name) + "_" + article.station.getFixedString(article.name) + "_" + timestamp
+    val fixedArticleName: String = article.station.getFixedString(article.name)
+    val filename = article.station.getFixedString(article.station.name) + "_" + fixedArticleName + "_" + timestamp
     val targetDurationInMin = article.duration + article.station.timeAdvance + article.station.extraTime
     //      val targetSize=targetDurationInMin*sizePerMinute
     val fullFileName = article.station.folder + "\\" + filename + ".mp3"
@@ -99,8 +102,11 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     val pid = Utils.getPID("vlc.exe", filename)
     Thread.sleep(targetDurationInMin * 60 * 1000)
     Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
+    Runtime.getRuntime().exec("\"" + id3 + "\" -l \"" + fixedArticleName + "\" -t \"" + fixedArticleName + "_" + timestamp + "\" " + fullFileName)
     val endPoint = Calendar.getInstance.getTimeInMillis
     Scheduler.logger.info("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint - startPoint) / 60000 + " minutes]")
+
+    //Thread.sleep(1000)
 
     /*
           Thread.sleep(targetDurationInMin*60*1000+ 10000)

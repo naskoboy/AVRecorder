@@ -33,3 +33,6 @@ object Utils {
         .getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
 
 }
+
+//D:\temp>wmic PROCESS WHERE "CommandLine like '%a%' and not CommandLine like '%wmic%' " GET ProcessId,CommandLine /FORMAT :list:"sortby=PID"
+//wmic path Win32_LocalTime Get Day^,Hour^,Minute^,Month^,Second^,Year /Format:table
