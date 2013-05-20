@@ -4,7 +4,7 @@
     <facet type="scala" name="Scala">
       <configuration>
         <option name="compilerLibraryLevel" value="Global" />
-        <option name="compilerLibraryName" value="scala-compiler-2.9.1" />
+        <option name="compilerLibraryName" value="scala-library" />
       </configuration>
     </facet>
   </component>
@@ -13,13 +13,12 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="1.6" jdkType="JavaSDK" />
+    <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="scala-library-2.9.1" level="application" />
     <orderEntry type="module-library">
       <library>
         <CLASSES>
-          <root url="jar://C:/3party/commons-logging-1.1.1.jar!/" />
+          <root url="jar://C:/3party/tagsoup-1.2.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
@@ -28,7 +27,17 @@
     <orderEntry type="module-library">
       <library>
         <CLASSES>
-          <root url="jar://C:/3party/tagsoup-1.2.jar!/" />
+          <root url="jar://C:/3party/log4j-1.2.17.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
+    <orderEntry type="library" name="scala-library" level="application" />
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://C:/3party/jaudiotagger-2.2.0-20130321.142353-1.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />

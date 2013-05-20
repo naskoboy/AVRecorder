@@ -3,6 +3,8 @@ package nasko.avrecorder
 import java.io.{InputStream, File}
 import java.text.SimpleDateFormat
 import java.util.{Scanner, Calendar, TimerTask}
+import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.tag.FieldKey
 
 class Gobbler(id:String, is:InputStream, suppress:Boolean) extends Thread {
 	override def run() = {
@@ -82,8 +84,8 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     assert(vlc != null && new File(vlc).exists, "vlc executable is not found")
     val sendSignal = Scheduler.userDir + "\\apps\\sendSignal.exe"
     assert(sendSignal != null && new File(sendSignal).exists, "sendSignal executable is not found")
-    val id3 = Scheduler.userDir + "\\apps\\id3.exe"
-    assert(id3 != null && new File(id3).exists, "id3 executable is not found")
+    //val id3 = Scheduler.userDir + "\\apps\\id3.exe"
+    //assert(id3 != null && new File(id3).exists, "id3 executable is not found")
 
     //      val sizePerMinute=4257000L
     val df = new SimpleDateFormat("yyMMdd_HHmm")
@@ -94,15 +96,27 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     val targetDurationInMin = article.duration + article.station.timeAdvance + article.station.extraTime
     //      val targetSize=targetDurationInMin*sizePerMinute
     val fullFileName = article.station.folder + "\\" + filename + ".mp3"
-    val cmd = "\"" + vlc + "\" " + vlcUrl + " --sout \"#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}\" --run-time=" + 120 * 60 + " --intf=dummy --dummy-quiet vlc://quit"
+    val cmd = "\"" + vlc + "\" " + vlcUrl + " --sout \"#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}\" --run-time=" + 120 * 60 + " -I dummy --dummy-quiet vlc://quit"
     Scheduler.logger.info(cmd + ", targetSize=?, targetDuration=" + targetDurationInMin)
     val startPoint = Calendar.getInstance.getTimeInMillis
     val p = Runtime.getRuntime().exec(cmd)
     startGobblers(filename, p)
     val pid = Utils.getPID("vlc.exe", filename)
     Thread.sleep(targetDurationInMin * 60 * 1000)
-    Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
-    Runtime.getRuntime().exec("\"" + id3 + "\" -l \"" + fixedArticleName + "\" -t \"" + fixedArticleName + "_" + timestamp + "\" " + fullFileName)
+    val proc = Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
+    proc.waitFor()
+    //Thread.sleep(2000)
+    //val cmd2 = "\"" + id3 + "\" -l \"" + fixedArticleName + "\" -t \"" + fixedArticleName + "_" + timestamp + "\" " + fullFileName.replace("\\", "\\\\")
+    //Scheduler.logger.info(cmd2)
+    //Runtime.getRuntime().exec(cmd2)
+
+    val f = AudioFileIO.read(new File(fullFileName))
+    val tag = new org.jaudiotagger.tag.id3.ID3v23Tag()
+    tag.addField(FieldKey.TITLE, fixedArticleName + "_" + timestamp)
+    tag.addField(FieldKey.ALBUM, fixedArticleName)
+    f.setTag(tag)
+    f.commit
+
     val endPoint = Calendar.getInstance.getTimeInMillis
     Scheduler.logger.info("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint - startPoint) / 60000 + " minutes]")
 
