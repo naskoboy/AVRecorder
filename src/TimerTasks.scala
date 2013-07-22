@@ -72,9 +72,9 @@ class rtmpTimerTask(rtmpUrl: String, article: Article, sizePerMinute: Long, page
 }
 
 class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
-  def startGobblers(id: String, p: Process): Unit = {
-    new Gobbler(id + ",STDOUT:", p.getInputStream, true).start
-    new Gobbler(id + ",STDERROR:", p.getErrorStream, true).start
+  def startGobblers(id: String, p: Process, suppress:Boolean = true): Unit = {
+    new Gobbler(id + ",STDOUT:", p.getInputStream, suppress).start
+    new Gobbler(id + ",STDERROR:", p.getErrorStream, suppress).start
   }
 
   // C:\Users\nasko>"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://193.43.26.22/live/livestream1 --quiet --stop 14400 --timeout 240 -o "c:\temp\BntWorldTV_Rtmpdump_T_111206_0529.flv"
@@ -100,7 +100,7 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     Scheduler.logger.info(cmd + ", targetSize=?, targetDuration=" + targetDurationInMin)
     val startPoint = Calendar.getInstance.getTimeInMillis
     val p = Runtime.getRuntime().exec(cmd)
-    startGobblers(filename, p)
+    startGobblers(filename, p, false)
     val pid = Utils.getPID("vlc.exe", filename)
     Thread.sleep(targetDurationInMin * 60 * 1000)
     val proc = Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
@@ -110,13 +110,14 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     //Scheduler.logger.info(cmd2)
     //Runtime.getRuntime().exec(cmd2)
 
+/*
     val f = AudioFileIO.read(new File(fullFileName))
     val tag = new org.jaudiotagger.tag.id3.ID3v23Tag()
     tag.addField(FieldKey.TITLE, fixedArticleName + "_" + timestamp)
     tag.addField(FieldKey.ALBUM, fixedArticleName)
     f.setTag(tag)
     f.commit
-
+*/
     val endPoint = Calendar.getInstance.getTimeInMillis
     Scheduler.logger.info("[" + filename + ", completed " + df.format(Calendar.getInstance.getTime) + ", for " + (endPoint - startPoint) / 60000 + " minutes]")
 
