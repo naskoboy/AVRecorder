@@ -4,9 +4,9 @@ import java.util.Calendar
 
 class Article(val station: Station, val start: Calendar, var duration: Long, val name: String) {
 
-  def getStartText = station.dateFormatter(start.getTime)
+  //def getStartText = station.dateFormatter(start.getTime)
 
-  override def toString = station.name + ", " + station.dateFormatter(start.getTime) + ", " + duration + ", " + name
+  override def toString = station.name + ", " + station.dateFormatter.format(start.getTime) + ", " + duration + ", " + name
 
   override def equals(a: Any) = {
     val b = a.asInstanceOf[Article]

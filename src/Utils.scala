@@ -3,6 +3,7 @@ package nasko.avrecorder
 import collection.mutable.ListBuffer
 import scala.Predef._
 import xml.Node
+import java.util.Calendar
 
 /**
  * Created with IntelliJ IDEA.
@@ -31,6 +32,20 @@ object Utils {
   def getPID(appName:String, filename:String) = scala.io.Source.fromInputStream(Runtime.getRuntime()
         .exec("wmic PROCESS WHERE \"Caption='" + appName + "' AND CommandLine like '%" + filename + "%'\" GET ProcessId /FORMAT:list")
         .getInputStream).getLines.filter(it => it.indexOf("ProcessId")>=0).next.substring(10)
+
+
+
+  def fixArticleDurations(l: List[Article]): Unit = {
+    var h = l.head
+    var t = l.tail
+    do {
+      h.duration = (t.head.start.getTime.getTime - h.start.getTime.getTime) / (1000 * 60)
+      h = t.head
+      t = t.tail
+    } while (!t.isEmpty)
+    h.duration = 120
+  }
+
 
 }
 

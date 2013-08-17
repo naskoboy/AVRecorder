@@ -99,12 +99,18 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     val cmd = "\"" + vlc + "\" " + vlcUrl + " --sout \"#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}\" --run-time=" + 120 * 60 + " -I dummy --dummy-quiet vlc://quit"
     Scheduler.logger.info(cmd + ", targetSize=?, targetDuration=" + targetDurationInMin)
     val startPoint = Calendar.getInstance.getTimeInMillis
-    val p = Runtime.getRuntime().exec(cmd)
+
+    val pb = new ProcessBuilder(vlc, vlcUrl, "--sout", "#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}", "--run-time=" + 120 * 60, "-I","dummy", "--dummy-quiet", "vlc://quit")
+    val p = pb.start()
+
+//    val p = Runtime.getRuntime().exec(cmd)
+
     startGobblers(filename, p, false)
     val pid = Utils.getPID("vlc.exe", filename)
     Thread.sleep(targetDurationInMin * 60 * 1000)
-    val proc = Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
-    proc.waitFor()
+    new ProcessBuilder(sendSignal, pid).start().waitFor()
+    //val proc = Runtime.getRuntime().exec("\"" + sendSignal + "\" " + pid)
+    //proc.waitFor()
     //Thread.sleep(2000)
     //val cmd2 = "\"" + id3 + "\" -l \"" + fixedArticleName + "\" -t \"" + fixedArticleName + "_" + timestamp + "\" " + fullFileName.replace("\\", "\\\\")
     //Scheduler.logger.info(cmd2)

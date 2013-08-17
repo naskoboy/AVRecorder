@@ -15,6 +15,8 @@ import java.text.SimpleDateFormat
 
 object ArticleCollectors {
 
+  def sorter(a:Article,b:Article) = a.start.compareTo(b.start)<0
+
   def getBnrArticles(station:Station, url:String) : List[Article] = {
 
  		val monthMap = Map("Януари" -> 0, "Февруари" -> 1, "Март" -> 2, "Април" -> 3, "Май" -> 4, "Юни" -> 5, "Юли" -> 6, "Август" -> 7, "Септември" -> 8, "Октомври" -> 9, "Ноември" -> 10, "Декември" -> 11)
@@ -60,7 +62,7 @@ object ArticleCollectors {
          }
        }
        articlesList = articles.toList
-       station.fixArticleDurations(articlesList)
+       Utils.fixArticleDurations(articlesList)
      }
      catch { case e => println(e.getMessage)}
 
@@ -120,10 +122,140 @@ object ArticleCollectors {
  			date.add(Calendar.DATE, 1)
  		}
  		var articlesList = articles.toList
- 		articlesList = articlesList.sortWith(Scheduler.sorter)
- 		station.fixArticleDurations(articlesList)
+ 		articlesList = articlesList.sortWith(sorter)
+ 		Utils.fixArticleDurations(articlesList)
  		articlesList
  	}
+
+  def Chasa24Articles(station: Station, tvId: Int): List[Article] = {
+    val date = Calendar.getInstance(station.timeZone)
+    //date.add(Calendar.DATE,-1)
+    //val df = new SimpleDateFormat("dd-MM-yyyy")
+    //df.setTimeZone(station.timeZone)
+    val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+    val parser = parserFactory.newSAXParser
+    val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+    val p = """(.*)\.(\d\d) (.*)""".r
+    val articles = new ListBuffer[Article]
+    //val url = "http://tv.dir.bg/tv_search.php?all=1&f_week=27.07"
+    //val url = "http://tv.dir.bg/tv_kanal_dnevna.php?id=28"
+    //val url = "http://tvguide.bg/?go=program&p=chanel&movieId=&tvId=3"        // ОК, "windows-1251"
+    val url = "http://www.24chasa.bg/programs.asp?tvid=" + tvId
+    val source = new org.xml.sax.InputSource(url)
+    //"http://www.potv.bg/tv49.html?fromh=0")
+    val doc = adapter.loadXML(source, parser)
+    val tv = (doc \\ "div") filter (it => (it \ "@class").exists(_.text=="selected-tv"))
+    var newDay=false
+    var prevHour=0
+    var articlesList = (for (item <- (tv \ "p")
+                             if item.text!="" && item.text.charAt(0).isDigit
+    ) yield {
+      val p(h,m,title) = item.text
+      val hInt=h.toInt
+      val mInt=m.toInt
+      val article_start = date.clone().asInstanceOf[Calendar]
+      article_start.set(Calendar.HOUR_OF_DAY, hInt)
+      article_start.set(Calendar.MINUTE, mInt)
+      article_start.set(Calendar.SECOND, 0)
+      article_start.set(Calendar.MILLISECOND, 0)
+      if (newDay==false && hInt<prevHour) newDay=true
+      if (newDay) article_start.add(Calendar.DATE,1)
+      prevHour = hInt
+      new Article(station, article_start, 0, title.trim)
+    }
+      ).toList
+
+    articlesList.sortWith(sorter)
+    Utils.fixArticleDurations(articlesList)
+    articlesList
+  }
+
+
+  def DnevnikBgTvGuide(station:Station, channelId:Int) : List[Article] = {
+    val date = Calendar.getInstance(station.timeZone)
+    date.add(Calendar.DATE,-1)
+    val df = new SimpleDateFormat("dd-MM-yyyy")
+    df.setTimeZone(station.timeZone)
+    val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+    val parser = parserFactory.newSAXParser
+    val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+    val p = """(.*):(.*)""".r
+    val articles = new ListBuffer[Article]
+    for (i <- 0.to(6)) {
+      val url = "http://www.dnevnik.bg/sled5/tv/index.php?channels[]=" + channelId + "&den=" + df.format(date.getTime).replace("-", "%2F")
+      val source = new org.xml.sax.InputSource(url)
+      //"http://www.potv.bg/tv49.html?fromh=0")
+      val doc = adapter.loadXML(source, parser)
+      val tvList = Utils.findNodes(doc, (n: Node) => {
+        val x = n.attribute("class")
+        x!=None && x.get.toString.equals("tvlist")
+      })
+      if (!tvList.isEmpty) {
+        val items = Utils.findNodes(tvList.head, (n: Node) => n.label=="li" )
+        var currentHour=0
+        var earlyMorning=false
+        items.foreach(it => {
+          val timeString = it.child.head.text
+          val p(h,m) = timeString
+          val hInt=h.toInt
+          val mInt=m.toInt
+          if (!earlyMorning && hInt<currentHour) earlyMorning=true
+          currentHour=hInt
+          val article_start = date.clone().asInstanceOf[Calendar]
+          article_start.set(Calendar.HOUR_OF_DAY, hInt)
+          article_start.set(Calendar.MINUTE, mInt)
+          article_start.set(Calendar.SECOND, 0)
+          //article_start.set(Calendar.MILLISECOND, 0)
+          if (earlyMorning) article_start.add(Calendar.DATE,1)
+          val nameString = it.child.tail.head.text.trim
+          articles += new Article(station, article_start, 0, nameString)
+        })
+      }
+      date.add(Calendar.DATE, 1)
+    }
+    var articlesList = articles.toList
+    articlesList = articlesList.sortWith(sorter)
+    Utils.fixArticleDurations(articlesList)
+    articlesList
+  }
+
+  def TvGuide(station:Station, tvid:Int) : List[Article] = {
+    val date = Calendar.getInstance(station.timeZone)
+    //date.add(Calendar.DATE,-1)
+    //val df = new SimpleDateFormat("dd-MM-yyyy")
+    //df.setTimeZone(station.timeZone)
+    val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+    val parser = parserFactory.newSAXParser
+    val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+    val p = """(.*)\.(\d\d) (.*)""".r
+    val articles = new ListBuffer[Article]
+    //val url = "http://tv.dir.bg/tv_search.php?all=1&f_week=27.07"
+    //val url = "http://tv.dir.bg/tv_kanal_dnevna.php?id=28"
+    //val url = "http://tvguide.bg/?go=program&p=chanel&movieId=&tvId=3"        // ОК, "windows-1251"
+    val url = "http://tvguide.bg/?go=program&p=chanel&tvId=3&date=1375045200&page=0"
+    val source = new org.xml.sax.InputSource(url)
+    //"http://www.potv.bg/tv49.html?fromh=0")
+    val doc = adapter.loadXML(source, parser)
+    val tv = (doc \\ "table") filter (it => (it \ "@class").exists(_.text=="programDetail"))
+    var prevHour =0
+    var newDay = false
+    var articlesList = (for (item <- (tv \ "p")) yield {
+      val p(h,m,title) = item.text
+      val hInt=h.toInt
+      val mInt=m.toInt
+      val article_start = date.clone().asInstanceOf[Calendar]
+      article_start.set(Calendar.HOUR_OF_DAY, hInt)
+      article_start.set(Calendar.MINUTE, mInt)
+      article_start.set(Calendar.SECOND, 0)
+      if (hInt<7) article_start.add(Calendar.DATE,1)
+      new Article(station, article_start, 0, title.trim)
+    }
+      ).toList
+
+    articlesList = articlesList.sortWith(sorter)
+    Utils.fixArticleDurations(articlesList)
+    articlesList
+  }
 
 
 }
