@@ -21,9 +21,15 @@ class Article(val station: Station, val start: Calendar, var duration: Long, val
     //def apply(user: String, domain: String) = user +"@"+ domain
 
     // The extraction method (mandatory)
-    def unapply(str: String): Option[String] = {
-      Some(str)
-    }
+    def unapply(str: String): Option[String] = Some(str)
+  }
+
+  object ArticleRegex {
+    // The injection method (optional)
+    //def apply(user: String, domain: String) = user +"@"+ domain
+
+    // The extraction method (mandatory)
+    def unapply(str: String): Option[String] = if (str.charAt(0) == '@') Some(str.substring(1)) else None
   }
 
   object ArticleLocalTimePeriod {
@@ -50,6 +56,7 @@ class Article(val station: Station, val start: Calendar, var duration: Long, val
     else {
       pat match {
         case ArticleLocalTimePeriod(left, right) => left <= start.getTime.getTime && start.getTime.getTime < right
+        //case ArticleRegex(namePattern) => namePattern.r().findFirstIn(name) != None
         case ArticleName(namePattern) => namePattern.r.findFirstIn(name) != None
       }
     }

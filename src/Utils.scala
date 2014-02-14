@@ -46,6 +46,8 @@ object Utils {
     h.duration = 120
   }
 
+  def toCommand(params: List[String]) =
+    (for (it <- params) yield if (it.indexOf(' ') > -1) "\"" + it + "\"" else it).mkString(" ")
 
 }
 

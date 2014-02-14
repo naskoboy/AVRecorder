@@ -74,13 +74,17 @@ abstract class Station(val name: String, val folder: String, val timeZone: TimeZ
     var articles = List.empty[Article]
     while (true) try {
       val startMillis = point.getTimeInMillis
-      val newArticles = this.getArticles.filter(a => startMillis<=a.start.getTimeInMillis)
+
+      val newArticles = try this.getArticles.filter(a => startMillis<=a.start.getTimeInMillis)
+      catch { case _ =>
+        Scheduler.logger.error(name + " getArticle failed")
+        List.empty[Article]
+      }
       if (!newArticles.isEmpty) {
         val firstMillis = newArticles.head.start.getTimeInMillis
         articles = articles.filter(a => startMillis<=a.start.getTimeInMillis && a.start.getTimeInMillis<firstMillis) ++ newArticles
         Utils.fixArticleDurations(articles)
       }
-
       val nextPoint = point.clone().asInstanceOf[Calendar] ; nextPoint.add(Calendar.MINUTE, refreshRate)
       val candidateArticles = articles.filter(_.start.getTime.getTime < nextPoint.getTime.getTime)
       val subscriptions = scala.io.Source.fromFile(subscriptionFile, "utf-8").getLines.filter(_.startsWith(name)).toList
@@ -97,6 +101,7 @@ abstract class Station(val name: String, val folder: String, val timeZone: TimeZ
           }
           else Scheduler.logger.info(a)
         )
+        Scheduler.logger.info("\n\n")
       }
 
       point = nextPoint

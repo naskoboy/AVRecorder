@@ -11,57 +11,52 @@ import scala.List
 
 object Scheduler extends App {
 
-  /*
-    class BntStation(name:String, folder:String, timeZone:TimeZone) extends Station(name, folder, timeZone, 5, 5) {
-      def getArticles = Utils.Chasa24Articles(NovaTV, 17930)
-      override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article, 0 /*4257000L*/)
-    }
-
-    class BNT1Station(name:String, folder:String, timeZone:TimeZone) extends Station("BNT1", folder, timeZone, 5, 5) {
-      def getArticles = Utils.Chasa24Articles(NovaTV, 17930)
-      override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://edge2.evolink.net:2020/fls/bnt.stream", article, 4257000L, "http://tv.bnt.bg/bnt1/", "vanja.gotdns.com:1080")
-    }
-  */
-// C:\Users\nasko>"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://edge2.evolink.net:2020/fls/bnt.stream --stop 20 --timeout 240 -o "c:\temp\Test1.flv" -p "http://tv.bnt.bg/bnt1/" -S vanja.gotdns.com:1080 -V
-
-/*
-//		override def getRecorderTimerTask(article:Article) : TimerTask = new vlcTimerTask("mms://94.156.248.42/nova_live_q3.wmv", article)
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
-    "\"rtmp://e1.cdn.bg:2060/fls\" -a \"fls\" -f \"WIN 11,7,700,224\" -W \"http://i.cdn.bg/eflash/jwNTV/jplayer.swf\" -p \"http://i.cdn.bg/live/0OmMKJ4SgY\" -y \"ntv_1.stream\" -T \"N0v4TV6#2\""
-    , article, 0 /*8574328L*/,"","")
-
-    // rtsp://31.13.218.243:1935/rtplive/nova_1000kbps.stream
-    // http://www.4bg.eu/files/tv/novatv.html
-    // 8519686L ()
-	}
-*/
-
   object NovaTV extends Station("NovaTV", rootFolder, bgTimeZone, 5, 5, 6*60) {
-    def getArticles = ArticleCollectors.Chasa24Articles(this, 17930)
+    def getArticles = ArticleCollectors.StartBgArticles(this, "nova%20tv")
+      //ArticleCollectors.Chasa24Articles(this, 17930)
 
     override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
-      "\"rtmp://e1.cdn.bg:2060/fls\" -a \"fls\" -f \"WIN 11,7,700,224\" -W \"http://i.cdn.bg/eflash/jwNTV/jplayer.swf\" -p \"http://i.cdn.bg/live/0OmMKJ4SgY\" -y \"ntv_1.stream\" -T \"N0v4TV6#2\""
-      , article, 0 /*8574328L*/,"","")
+      List(
+      "-r", "rtmp://e1.cdn.bg:2060/fls",
+      "-a", "fls",
+      "-f", "WIN 11,7,700,224",
+      "-W", "http://i.cdn.bg/eflash/jwNTV/jplayer.swf",
+      "-p", "http://i.cdn.bg/live/0OmMKJ4SgY",
+      "-y", "ntv_1.stream",
+      "-T", "N0v4TV6#2",
+      "-S", "localhost:1080"
+      ),
+//      "\"rtmp://e1.cdn.bg:2060/fls\" -a \"fls\" -f \"WIN 11,7,700,224\" -W \"http://i.cdn.bg/eflash/jwNTV/jplayer.swf\" -p \"http://i.cdn.bg/live/0OmMKJ4SgY\" -y \"ntv_1.stream\" -T \"N0v4TV6#2\""
+      article,
+      0 /*8574328L*/)
   }
 
   object Bnt1TV extends Station("BNT1", rootFolder, bgTimeZone, 5, 5) {
     def getArticles = ArticleCollectors.Chasa24Articles(this, 17931)
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://edge2.evolink.net:2020/fls/bnt.stream", article, 4257000L, "http://tv.bnt.bg/bnt1/", "vanja.gotdns.com:1080")
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
+      List(),
+      article,
+      4257000L)
   }
 
   object BntWorldTV extends Station("BntWorldTV", rootFolder, bgTimeZone, 5, 5, 6*60) {
-    def getArticles = ArticleCollectors.getBntWorldArticles(this)
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask("rtmp://193.43.26.22/live/livestream1", article, 0 /*4257000L*/)
+    def getArticles = ArticleCollectors.StartBgArticles(this, "bnt%20world")
+      //ArticleCollectors.getBntWorldArticles(this)
+
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
+      List("-r", "rtmp://193.43.26.22/live/livestream1"),
+      article,
+      0 /*4257000L*/)
   }
 
   object Horizont extends Station("Horizont", rootFolder, bgTimeZone, 0, 5, 12*60) {
     override def getArticles = ArticleCollectors.getBnrArticles(this, "http://bnr.bg/sites/horizont/Pages/ProgramScheme.aspx")
-    override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask("http://streaming.bnr.bg/Horizont", article)
+    override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask("http://stream.bnr.bg:8002/horizont.mp3", article)
   }
 
   object HristoBotev extends Station("HristoBotev", rootFolder, bgTimeZone, 0, 5, 12*60) {
     override def getArticles = ArticleCollectors.getBnrArticles(this, "http://bnr.bg/sites/hristobotev/Pages/ProgramScheme.aspx")
-    override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask("http://streaming.bnr.bg/HristoBotev", article)
+    override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask("http://stream.bnr.bg:8003/botev.mp3", article)
   }
 
   def nextDay(c:Calendar) = {
@@ -97,18 +92,19 @@ object Scheduler extends App {
 	//"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://68.68.22.79/live/_definst_/bgtvbtv --stop 14400 --timeout 240 -o "c:\temp\BTV_Rtmpdump_Test.flv"
 	
 	def main {
+    //ArticleCollectors.StartBgArticles(BntWorldTV , "bnt%20world").foreach (println _) ; return
+    //ArticleCollectors.StartBgArticles(NovaTV , "nova%20tv").foreach (println _) ; return
+
     val stations = List(NovaTV, Bnt1TV, BntWorldTV, Horizont, HristoBotev)
 
     val testStationsStr = System.getProperty("testStations")
     if (testStationsStr!="") {
       val testStations = testStationsStr.split(',')
-      stations.foreach(station => {
-        if (testStations.exists(_==station.name)) {
-          val a = new Article(station, Calendar.getInstance(), 1, "Тest")
-          new Timer().schedule(station.getRecorderTimerTask(a), 0)
-        }
-      })
+      stations.foreach(station =>
+        if (testStations.exists(_==station.name)) station.getRecorderTimerTask(new Article(station, Calendar.getInstance(), 1, "Тest")).run()
+      )
     } else {
+      //new Timer().schedule(NovaTV.getRecorderTimerTask(new Article(NovaTV, Calendar.getInstance(), 1, "Test")), 0)
       val activeStations = System.getProperty("activeStations").split(',')
       stations.foreach(station => if (activeStations.exists(_==station.name)) station.start )
     }

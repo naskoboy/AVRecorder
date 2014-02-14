@@ -171,6 +171,46 @@ object ArticleCollectors {
   }
 
 
+  def StartBgArticles(station: Station, tvId: String): List[Article] = {
+    val date = Calendar.getInstance(station.timeZone)
+    val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+    val parser = parserFactory.newSAXParser
+    val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+    val p = """(\d\d)\:(\d\d)""".r
+    println("http://www.start.bg/lenta/tv-programa/tv/" + tvId + "/" + String.format("%1$tY-%1$tm-%1$td", date) + "/0")
+    val url = "http://www.start.bg/lenta/tv-programa/tv/" + tvId + "/" + String.format("%1$tY-%1$tm-%1$td", date) + "/0"
+    val source = new org.xml.sax.InputSource(url)
+    val doc = adapter.loadXML(source, parser)
+    val tv = (doc \\ "ul") filter (it => (it \ "@class").exists(_.text=="tv-dlist"))
+    var newDay=false
+    var prevHour=0
+    var articlesList = (for
+    (item <- (tv \ "li");
+      tags = (item \\ "div").map(it => (it \ "@class").text -> it.text).toMap;
+      timeTag = tags.get("time").get;
+      title = tags.get("title").get
+      if (timeTag!="Сега")
+    ) yield {
+        val p(h,m) = timeTag
+        val hInt=h.toInt
+        val mInt=m.toInt
+        val article_start = date.clone().asInstanceOf[Calendar]
+        article_start.set(Calendar.HOUR_OF_DAY, hInt)
+        article_start.set(Calendar.MINUTE, mInt)
+        article_start.set(Calendar.SECOND, 0)
+        article_start.set(Calendar.MILLISECOND, 0)
+        if (newDay==false && hInt<prevHour) newDay=true
+        if (newDay) article_start.add(Calendar.DATE,1)
+        prevHour = hInt
+        new Article(station, article_start, 0, title.trim)
+      }
+    ).toList
+
+    articlesList.sortWith(sorter)
+    Utils.fixArticleDurations(articlesList)
+    articlesList
+  }
+
   def DnevnikBgTvGuide(station:Station, channelId:Int) : List[Article] = {
     val date = Calendar.getInstance(station.timeZone)
     date.add(Calendar.DATE,-1)
@@ -205,7 +245,7 @@ object ArticleCollectors {
           article_start.set(Calendar.HOUR_OF_DAY, hInt)
           article_start.set(Calendar.MINUTE, mInt)
           article_start.set(Calendar.SECOND, 0)
-          //article_start.set(Calendar.MILLISECOND, 0)
+          article_start.set(Calendar.MILLISECOND, 0)
           if (earlyMorning) article_start.add(Calendar.DATE,1)
           val nameString = it.child.tail.head.text.trim
           articles += new Article(station, article_start, 0, nameString)
