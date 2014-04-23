@@ -31,12 +31,22 @@ object Scheduler extends App {
       0 /*8574328L*/)
   }
 
-  object Bnt1TV extends Station("BNT1", rootFolder, bgTimeZone, 5, 5) {
+  object Bnt1TV extends Station("Bnt1TV", rootFolder, bgTimeZone, 5, 5) {
     def getArticles = ArticleCollectors.Chasa24Articles(this, 17931)
     override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
-      List(),
+      List(
+        "-r", "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8",
+        "-a", "fls",
+        "-W", "http://cdn.bg/eflash/jwplayer510/player.swf",
+        "-p", "http://cdn.bg/live/4eViE8vGzI",
+        "-y", "bnt.stream?at=b397b371faf1b2347ebb6954893264f8",
+        "-T", "B@1R1st1077",
+        "-S", "192.168.1.10:1080"
+      ),
       article,
-      4257000L)
+      0 /*4257000L*/)
+
+// "rtmpdump.exe" -v -r "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -a "fls" -W "http://cdn.bg/eflash/jwplayer510/player.swf" -p "http://cdn.bg/live/4eViE8vGzI" -y "bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -T "B@1R1st1077" -o "bnt1.flv" -S 192.168.1.10:1080
   }
 
   object BntWorldTV extends Station("BntWorldTV", rootFolder, bgTimeZone, 5, 5, 6*60) {
@@ -49,15 +59,13 @@ object Scheduler extends App {
       0 /*4257000L*/)
   }
 
-  object Horizont extends Station("Horizont", rootFolder, bgTimeZone, 0, 5, 12*60) {
-    override def getArticles = ArticleCollectors.getBnrArticles(this, "http://bnr.bg/sites/horizont/Pages/ProgramScheme.aspx")
-    override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask("http://stream.bnr.bg:8002/horizont.mp3", article)
+  abstract class BnrStation(name: String, val programaUrl: String, streamUrl: String) extends Station(name, rootFolder, bgTimeZone, 0, 5, 12*60) {
+    override def getArticles = ArticleCollectors.getBnrArticles3(this)
+    override def getRecorderTimerTask(article:Article) : TimerTask = new vlcMP3AudioTimerTask(streamUrl, article)
   }
 
-  object HristoBotev extends Station("HristoBotev", rootFolder, bgTimeZone, 0, 5, 12*60) {
-    override def getArticles = ArticleCollectors.getBnrArticles(this, "http://bnr.bg/sites/hristobotev/Pages/ProgramScheme.aspx")
-    override def getRecorderTimerTask(article:Article) : TimerTask = new vlcAudioTimerTask("http://stream.bnr.bg:8003/botev.mp3", article)
-  }
+  object Horizont    extends BnrStation("Horizont"   , "http://bnr.bg/horizont/page/programna-shema"      , "http://stream.bnr.bg:8002/horizont.mp3")
+  object HristoBotev extends BnrStation("HristoBotev", "http://bnr.bg/hristobotev/page/sedmichna-programa", "http://stream.bnr.bg:8003/botev.mp3")
 
   def nextDay(c:Calendar) = {
     val nextDay = c.clone.asInstanceOf[Calendar]
@@ -92,9 +100,6 @@ object Scheduler extends App {
 	//"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://68.68.22.79/live/_definst_/bgtvbtv --stop 14400 --timeout 240 -o "c:\temp\BTV_Rtmpdump_Test.flv"
 	
 	def main {
-    //ArticleCollectors.StartBgArticles(BntWorldTV , "bnt%20world").foreach (println _) ; return
-    //ArticleCollectors.StartBgArticles(NovaTV , "nova%20tv").foreach (println _) ; return
-
     val stations = List(NovaTV, Bnt1TV, BntWorldTV, Horizont, HristoBotev)
 
     val testStationsStr = System.getProperty("testStations")
@@ -112,6 +117,7 @@ object Scheduler extends App {
   }
 
   def test {
+    ArticleCollectors.getBnrArticles3(HristoBotev).foreach (println _) ; return
 
     val r = Runtime.getRuntime
     val tag = new String("title=xcv".getBytes(), "UTF-8")

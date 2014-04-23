@@ -1,9 +1,13 @@
 package nasko.avrecorder
 
 import collection.mutable.ListBuffer
-import java.util.Calendar
+import java.util.{Locale, Calendar}
+import nasko.avrecorder.Scheduler.{Horizont, BnrStation}
 import xml.Node
 import java.text.SimpleDateFormat
+import scala.Predef._
+import scala.Some
+import tools.nsc.doc.model.comment.HorizontalRule
 
 /**
  * Created with IntelliJ IDEA.
@@ -17,7 +21,7 @@ object ArticleCollectors {
 
   def sorter(a:Article,b:Article) = a.start.compareTo(b.start)<0
 
-  def getBnrArticles(station:Station, url:String) : List[Article] = {
+  def getBnrArticlesOld(station:Station, url:String) : List[Article] = {
 
  		val monthMap = Map("Януари" -> 0, "Февруари" -> 1, "Март" -> 2, "Април" -> 3, "Май" -> 4, "Юни" -> 5, "Юли" -> 6, "Август" -> 7, "Септември" -> 8, "Октомври" -> 9, "Ноември" -> 10, "Декември" -> 11)
 
@@ -69,6 +73,102 @@ object ArticleCollectors {
  		articlesList
  	}
 
+  def getBnrArticles2(station:BnrStation) : List[Article] = {
+
+    val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
+
+    val articles = new ListBuffer[Article]
+    var articlesList = List.empty[Article]
+    try {
+      val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+      val parser = parserFactory.newSAXParser
+      val source = new org.xml.sax.InputSource(station.programaUrl)
+      val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+      val doc = adapter.loadXML(source, parser)
+
+      //println(findNodes(doc, isWeekDay))
+      val moduleTag = Utils.findNodes(doc, (n: Node) => n.label.equals("module")).head
+      val tag2 = Utils.findNodes(moduleTag, (n: Node) => n.label.equals("div")).head.child
+
+      var dayInt = 0
+      var monthInt = 0
+      var yearInt = 0
+      val tag3 = tag2.filter(it => it.label.equals("div") || it.label.equals("h2"))
+      (if (station==Horizont) tag3.tail else tag3).foreach(it => {
+        if (it.label.equals("h2")) {
+          println(it.text)
+          val Some(myMatch) = """(\d{1,2})\s(.*)\s(\d\d\d\d)(.*)""".r.findFirstMatchIn(it.text)
+          dayInt = myMatch.group(1).toInt
+          monthInt = monthMap(myMatch.group(2))
+          yearInt = myMatch.group(3).toInt
+        }
+        else {
+          val v = it.text.replace("\t","").split("\n")
+          val p = """(.*):(.*)""".r
+          val p(h,m) = v(1)
+          val article_start = Calendar.getInstance(station.timeZone)
+          article_start.set(yearInt, monthInt, dayInt, h.toInt, m.toInt, 0)
+          article_start.set(Calendar.MILLISECOND, 0)
+          articles += new Article(station, article_start, 0, v(2))
+//          println(v)
+        }
+      })
+
+      articlesList = articles.toList
+      Utils.fixArticleDurations(articlesList)
+    }
+    catch { case e => println(e.getMessage)}
+
+    articlesList
+  }
+
+  def getBnrArticles3(station:BnrStation) : List[Article] = {
+
+    val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
+
+    val articles = new ListBuffer[Article]
+    var articlesList = List.empty[Article]
+    try {
+      val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+      val parser = parserFactory.newSAXParser
+      val source = new org.xml.sax.InputSource(station.programaUrl)
+      val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+      val doc = adapter.loadXML(source, parser)
+
+      val moduleTag = (doc \\ "module").head
+      val tag2 = Utils.findNodes(moduleTag, (n: Node) =>
+        n.label == "h2" || (n.label == "div" && (n \ "@class").isEmpty)
+      )
+      val date = """(.+) (.+) (.+), (.+)""".r
+      val timeName = """(\n|\t)*(\d\d):(\d\d)(\n|\t)*(.*)\n""".r
+      var dayInt=0
+      var monthInt=0
+      var yearInt=0
+
+      tag2.foreach{ tag => tag.label match {
+          case "h2" =>
+            val date(day, month, year, _) = tag.text
+            dayInt = day.toInt
+            monthInt = monthMap(month)
+            yearInt = year.toInt
+          case "div" =>
+            val fm = timeName.findFirstMatchIn(tag.text).get
+            val hour = fm.group(2).toInt
+            val minute = fm.group(3).toInt
+            val title = fm.group(5)
+            val article_start = Calendar.getInstance(station.timeZone)
+            article_start.set(yearInt, monthInt, dayInt, hour, minute, 0)
+            article_start.set(Calendar.MILLISECOND, 0)
+            articles += new Article(station, article_start, 0, title)
+        }
+      }
+      articlesList = articles.toList
+      Utils.fixArticleDurations(articlesList)
+    }
+    catch { case e => println(e.getMessage)}
+
+    articlesList
+  }
 
   def getBntWorldArticles(station:Station) : List[Article] = {
 

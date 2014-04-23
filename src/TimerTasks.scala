@@ -89,7 +89,7 @@ class rtmpTimerTask(params: List[String], article: Article, sizePerMinute: Long)
   }
 }
 
-class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
+class vlcMP3AudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
   def startGobblers(id: String, p: Process, suppress:Boolean = true): Unit = {
     new Gobbler(id + ",STDOUT:", p.getInputStream, suppress).start
     new Gobbler(id + ",STDERROR:", p.getErrorStream, suppress).start
@@ -122,7 +122,11 @@ class vlcAudioTimerTask(vlcUrl: String, article: Article) extends TimerTask {
     val cmdParams =  List(
       vlc,
       vlcUrl,
-      "--sout", "#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}",
+
+      "--sout", "#duplicate{dst=std{access=file,mux=raw,dst=" + fullFileName + "}",
+//      "--sout", "#transcode{acodec=mp3,ab=32,channels=2,samplerate=44100}:std{access=file,mux=dummy,dst=" + fullFileName + "}",
+//      ":demux=dump", ":demuxdump-file=" + fullFileName,
+
       "--run-time=" + 120 * 60,
       "-I", "dummy",
       "--dummy-quiet",
