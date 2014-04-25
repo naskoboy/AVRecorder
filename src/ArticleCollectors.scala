@@ -1,13 +1,16 @@
 package nasko.avrecorder
 
 import collection.mutable.ListBuffer
-import java.util.{Locale, Calendar}
-import nasko.avrecorder.Scheduler.{Horizont, BnrStation}
+import java.util.{TimeZone, Locale, Calendar}
+import nasko.avrecorder.Scheduler.{BntStation, Horizont, BnrStation}
 import xml.Node
 import java.text.SimpleDateFormat
 import scala.Predef._
 import scala.Some
 import tools.nsc.doc.model.comment.HorizontalRule
+import org.xml.sax.InputSource
+import java.io.{File, InputStream}
+import io.Source
 
 /**
  * Created with IntelliJ IDEA.
@@ -162,6 +165,46 @@ object ArticleCollectors {
             articles += new Article(station, article_start, 0, title)
         }
       }
+      articlesList = articles.toList
+      Utils.fixArticleDurations(articlesList)
+    }
+    catch { case e => println(e.getMessage)}
+
+    articlesList
+  }
+
+  def getBntArticles(station: BntStation, suffix: String) : List[Article] = {
+
+    val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
+
+    val articles = new ListBuffer[Article]
+    var articlesList = List.empty[Article]
+    try {
+      val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+      val parser = parserFactory.newSAXParser
+      val source = new org.xml.sax.InputSource("http://bnt.bg/programata")
+      val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+
+      val doc = adapter.loadXML(source, parser)
+      val date = """(.+) (.+) (.+) (.+)""".r
+      val time = """(\d\d):(\d\d)""".r
+
+      val items = for (
+          week <- (doc  \\ "li" ).filter(it => (it \ "@class").text == "programDays" && (it \ "@id").text.endsWith(suffix)) ;
+          item <- (week \\ "div").filter(it => (it \ "@class").text == "programInnerWholeCell")
+      ) yield (
+       (item \ "div").filter(it => (it \ "@class").text=="programInnerHourTime").text,
+       (item \ "div").filter(it => (it \ "@class").text=="programInnerNameInfo").text
+      )
+
+      var timegen: timeGenerator = null
+      for ((timeStr, title) <- items) timeStr match {
+         case time(hour, minute) =>
+           articles += new Article(station, timegen.next(hour.toInt, minute.toInt), 0, title)
+         case _ =>
+           val date(day, month, year, _) = title
+           timegen = new timeGenerator(station.timeZone, year.toInt, monthMap(month), day.toInt)
+       }
       articlesList = articles.toList
       Utils.fixArticleDurations(articlesList)
     }

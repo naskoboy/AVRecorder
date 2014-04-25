@@ -3,7 +3,7 @@ package nasko.avrecorder
 import collection.mutable.ListBuffer
 import scala.Predef._
 import xml.Node
-import java.util.Calendar
+import java.util.{TimeZone, Calendar}
 
 /**
  * Created with IntelliJ IDEA.
@@ -50,6 +50,23 @@ object Utils {
     (for (it <- params) yield if (it.indexOf(' ') > -1) "\"" + it + "\"" else it).mkString(" ")
 
 }
+
+class timeGenerator(timezone: TimeZone, year: Int, month: Int, day: Int) {
+  var currentHour=0
+  var earlyMorning=false
+
+  def next(hour: Int, minute: Int) = {
+    if (!earlyMorning && hour<currentHour) earlyMorning=true
+    currentHour=hour
+    val moment = Calendar.getInstance(timezone)
+    moment.set(year, month, day, hour, minute, 0)
+    moment.set(Calendar.MILLISECOND, 0)
+    if (earlyMorning) moment.add(Calendar.DATE, 1)
+    moment
+  }
+}
+
+
 
 //D:\temp>wmic PROCESS WHERE "CommandLine like '%a%' and not CommandLine like '%wmic%' " GET ProcessId,CommandLine /FORMAT :list:"sortby=PID"
 //wmic path Win32_LocalTime Get Day^,Hour^,Minute^,Month^,Second^,Year /Format:table
