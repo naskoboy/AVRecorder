@@ -12,7 +12,7 @@ import scala.List
 object Scheduler extends App {
 
   object NovaTV extends Station("NovaTV", rootFolder, bgTimeZone, 5, 5, 6*60) {
-    def getArticles = ArticleCollectors.StartBgArticles(this, "nova%20tv")
+    def getArticles = ArticleCollectors.getNovaArticles(this)
       //ArticleCollectors.Chasa24Articles(this, 17930)
 
     override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
@@ -24,14 +24,15 @@ object Scheduler extends App {
       "-p", "http://i.cdn.bg/live/0OmMKJ4SgY",
       "-y", "ntv_1.stream",
       "-T", "N0v4TV6#2",
-      "-S", "localhost:1080"
+      "-S", "192.168.1.10:1080"
       ),
 //      "\"rtmp://e1.cdn.bg:2060/fls\" -a \"fls\" -f \"WIN 11,7,700,224\" -W \"http://i.cdn.bg/eflash/jwNTV/jplayer.swf\" -p \"http://i.cdn.bg/live/0OmMKJ4SgY\" -y \"ntv_1.stream\" -T \"N0v4TV6#2\""
+//C:\AVRecorder\apps\rtmpdump.exe -v --quiet --stop 14400 --timeout 240 -o D:\BNTWorld\NovaTV__Etajna_Sobstvenost____Serien_Film__4_Sezon_140427_1500.flv -r rtmp://e1.cdn.bg:2060/fls -a fls -f "WIN 11,7,700,224" -W http://i.cdn.bg/eflash/jwNTV/jplayer.swf -p http://i.cdn.bg/live/0OmMKJ4SgY -y ntv_1.stream -T N0v4TV6#2 -S localhost:1080
       article,
       0 /*8574328L*/)
   }
 
-  abstract class BntStation(name: String) extends Station(name, rootFolder, bgTimeZone, 5, 5) {
+  abstract class BntStation(name: String) extends Station(name, rootFolder, bgTimeZone, 5, 5, 6*60) {
     def getArticles = ArticleCollectors.Chasa24Articles(this, 17931)
 /*
     override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
@@ -86,8 +87,9 @@ object Scheduler extends App {
     // "rtmpdump.exe" -v -r "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -a "fls" -W "http://cdn.bg/eflash/jwplayer510/player.swf" -p "http://cdn.bg/live/4eViE8vGzI" -y "bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -T "B@1R1st1077" -o "bnt1.flv" -S 192.168.1.10:1080
   }
 
-  object BntWorldTV extends Station("BntWorldTV", rootFolder, bgTimeZone, 5, 5, 6*60) {
-    def getArticles = ArticleCollectors.StartBgArticles(this, "bnt%20world")
+  object BntWorldTV extends BntStation("BntWorldTV") {
+    override def getArticles =ArticleCollectors.getBntArticles(this, "_w")
+      //ArticleCollectors.StartBgArticles(this, "bnt%20world")
       //ArticleCollectors.getBntWorldArticles(this)
 
     override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
@@ -154,7 +156,7 @@ object Scheduler extends App {
   }
 
   def test {
-    ArticleCollectors.getBntArticles(Bnt1TV, "_one").foreach (println _) ; return
+    ArticleCollectors.getBntArticles(BntWorldTV, "_w").foreach (println) ; return
 
     val r = Runtime.getRuntime
     val tag = new String("title=xcv".getBytes(), "UTF-8")
@@ -176,7 +178,7 @@ object Scheduler extends App {
 //  logger.info("info")
 //  println(System.getProperty("my.user.dir"))
 
-  	main
+	main
 //  test
 
 }

@@ -11,6 +11,7 @@ import tools.nsc.doc.model.comment.HorizontalRule
 import org.xml.sax.InputSource
 import java.io.{File, InputStream}
 import io.Source
+import java.util
 
 /**
  * Created with IntelliJ IDEA.
@@ -173,21 +174,26 @@ object ArticleCollectors {
     articlesList
   }
 
+  def loadDoc(url: String) = {
+    val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+    val parser = parserFactory.newSAXParser
+    val source = new org.xml.sax.InputSource(url)
+    val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+    adapter.loadXML(source, parser)
+  }
+
+  def findByClass(node: Node, value: String) = node.child.find(it => (it \ "@class").text == value)
+
   def getBntArticles(station: BntStation, suffix: String) : List[Article] = {
 
     val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
 
     val articles = new ListBuffer[Article]
     var articlesList = List.empty[Article]
+    val date = """(.+) (.+) (\d\d\d\d) (.+)""".r
+    val time = """(\d\d):(\d\d)""".r
     try {
-      val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
-      val parser = parserFactory.newSAXParser
-      val source = new org.xml.sax.InputSource("http://bnt.bg/programata")
-      val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
-
-      val doc = adapter.loadXML(source, parser)
-      val date = """(.+) (.+) (\d\d\d\d) (.+)""".r
-      val time = """(\d\d):(\d\d)""".r
+      val doc = loadDoc("http://bnt.bg/programata")
 
       val items = for (
           week <- (doc  \\ "li" ).filter(it => (it \ "@class").text == "programDays" && (it \ "@id").text.endsWith(suffix)) ;
@@ -207,7 +213,7 @@ object ArticleCollectors {
            val date(day, month, year, _) = title
            timegen = new timeGenerator(station.timeZone, year.toInt, monthMap(month), day.toInt)
          } catch {
-           case e:scala.MatchError =>
+           case e:scala.MatchError => // ignore
            case e:Throwable => throw e
          }
        }}
@@ -219,7 +225,32 @@ object ArticleCollectors {
     articlesList
   }
 
-  def getBntWorldArticles(station:Station) : List[Article] = {
+  def getNovaArticles(station: Station) : List[Article] = {
+    val articles = new ListBuffer[Article]
+    var articlesList = List.empty[Article]
+    val time = """(\d\d):(\d\d)""".r
+    val day = Calendar.getInstance(station.timeZone)
+    val sdf = new SimpleDateFormat("yyyy/MM/dd")
+    for (it <- 0.to(6)) {
+      try {
+        val doc = ArticleCollectors.loadDoc("http://novatv.bg/schedule/index/" + sdf.format(day.getTime)+ "/")
+        var timegen = new timeGenerator(station.timeZone,day.get(Calendar.YEAR), day.get(Calendar.MONTH), day.get(Calendar.DAY_OF_MONTH))
+        ((doc \\ "ul").find(it => (it \ "@class").text == "timeline novatv").get \ "li").filter(it =>(it \ "@class").text == "programme").foreach( item =>
+        {
+          val time(hour, minute) = findByClass(item, "programme_time").get.text
+          val title = findByClass(item, "programme_title").get.text
+          articles += new Article(station, timegen.next(hour.toInt, minute.toInt), 0, title)
+        })
+      }
+      catch { case e => println(e.getMessage) }
+      day.add(Calendar.DATE, 1)
+    }
+    articlesList = articles.toList
+    Utils.fixArticleDurations(articlesList)
+    articlesList
+  }
+
+  def getBntWorldArticles_OLD(station:Station) : List[Article] = {
 
  		val monthMap = Map("Януари" -> 0, "Февруари" -> 1, "Март" -> 2, "Април" -> 3, "Май" -> 4, "Юни" -> 5, "Юли" -> 6, "Август" -> 7, "Септември" -> 8, "Октомври" -> 9, "Ноември" -> 10, "Декември" -> 11)
 
