@@ -68,6 +68,24 @@ object Scheduler extends App {
 // "rtmpdump.exe" -v -r "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -a "fls" -W "http://cdn.bg/eflash/jwplayer510/player.swf" -p "http://cdn.bg/live/4eViE8vGzI" -y "bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -T "B@1R1st1077" -o "bnt1.flv" -S 192.168.1.10:1080
   }
 
+  object Bnt2TV extends BntStation("Bnt2TV") {
+    override def getArticles = ArticleCollectors.getBntArticles(this, "_two")
+    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
+      List(
+        "-r", "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8",
+        "-a", "fls",
+        "-W", "http://cdn.bg/eflash/jwplayer510/player.swf",
+        "-p", "http://cdn.bg/live/ZBPbdxDHm7",
+        "-y", "bnt2.stream?at=b397b371faf1b2347ebb6954893264f8",
+        "-T", "B@1R1st1077",
+        "-S", "192.168.1.10:1080"
+      ),
+      article,
+      0 /*4257000L*/)
+
+    // "rtmpdump.exe" -v -r "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -a "fls" -W "http://cdn.bg/eflash/jwplayer510/player.swf" -p "http://cdn.bg/live/4eViE8vGzI" -y "bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -T "B@1R1st1077" -o "bnt1.flv" -S 192.168.1.10:1080
+  }
+
   object BntWorldTV extends Station("BntWorldTV", rootFolder, bgTimeZone, 5, 5, 6*60) {
     def getArticles = ArticleCollectors.StartBgArticles(this, "bnt%20world")
       //ArticleCollectors.getBntWorldArticles(this)
@@ -119,7 +137,7 @@ object Scheduler extends App {
 	//"C:\rtmpdump-2.3\rtmpdump.exe" -v -r rtmp://68.68.22.79/live/_definst_/bgtvbtv --stop 14400 --timeout 240 -o "c:\temp\BTV_Rtmpdump_Test.flv"
 	
 	def main {
-    val stations = List(NovaTV, Bnt1TV, BntWorldTV, Horizont, HristoBotev)
+    val stations = List(NovaTV, Bnt1TV, Bnt2TV, BntWorldTV, Horizont, HristoBotev)
 
     val testStationsStr = System.getProperty("testStations")
     if (testStationsStr!="") {

@@ -186,7 +186,7 @@ object ArticleCollectors {
       val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
 
       val doc = adapter.loadXML(source, parser)
-      val date = """(.+) (.+) (.+) (.+)""".r
+      val date = """(.+) (.+) (\d\d\d\d) (.+)""".r
       val time = """(\d\d):(\d\d)""".r
 
       val items = for (
@@ -198,13 +198,19 @@ object ArticleCollectors {
       )
 
       var timegen: timeGenerator = null
-      for ((timeStr, title) <- items) timeStr match {
+      for ((timeStr, title) <- items) {
+        //println(timeStr + "," + title)
+        timeStr match {
          case time(hour, minute) =>
            articles += new Article(station, timegen.next(hour.toInt, minute.toInt), 0, title)
-         case _ =>
+         case _ => try {
            val date(day, month, year, _) = title
            timegen = new timeGenerator(station.timeZone, year.toInt, monthMap(month), day.toInt)
-       }
+         } catch {
+           case e:scala.MatchError =>
+           case e:Throwable => throw e
+         }
+       }}
       articlesList = articles.toList
       Utils.fixArticleDurations(articlesList)
     }
