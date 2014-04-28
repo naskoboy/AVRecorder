@@ -32,24 +32,7 @@ object Scheduler extends App {
       0 /*8574328L*/)
   }
 
-  abstract class BntStation(name: String) extends Station(name, rootFolder, bgTimeZone, 5, 5, 6*60) {
-    def getArticles = ArticleCollectors.Chasa24Articles(this, 17931)
-/*
-    override def getRecorderTimerTask(article:Article) : TimerTask = new rtmpTimerTask(
-      List(
-        "-r", "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8",
-        "-a", "fls",
-        "-W", "http://cdn.bg/eflash/jwplayer510/player.swf",
-        "-p", "http://cdn.bg/live/4eViE8vGzI",
-        "-y", "bnt.stream?at=b397b371faf1b2347ebb6954893264f8",
-        "-T", "B@1R1st1077",
-        "-S", "192.168.1.10:1080"
-      ),
-      article,
-      0 /*4257000L*/)
-*/
-    // "rtmpdump.exe" -v -r "rtmp://edge3.cdn.bg:2020/fls/bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -a "fls" -W "http://cdn.bg/eflash/jwplayer510/player.swf" -p "http://cdn.bg/live/4eViE8vGzI" -y "bnt.stream?at=b397b371faf1b2347ebb6954893264f8" -T "B@1R1st1077" -o "bnt1.flv" -S 192.168.1.10:1080
-  }
+  abstract class BntStation(name: String) extends Station(name, rootFolder, bgTimeZone, 5, 5, 6*60)
 
   object Bnt1TV extends BntStation("Bnt1TV") {
     override def getArticles = ArticleCollectors.getBntArticles(this, "_one")
@@ -99,7 +82,7 @@ object Scheduler extends App {
   }
 
   abstract class BnrStation(name: String, val programaUrl: String, streamUrl: String) extends Station(name, rootFolder, bgTimeZone, 0, 5, 12*60) {
-    override def getArticles = ArticleCollectors.getBnrArticles3(this)
+    override def getArticles = ArticleCollectors.getBnrArticles(this)
     override def getRecorderTimerTask(article:Article) : TimerTask = new vlcMP3AudioTimerTask(streamUrl, article)
   }
 
@@ -156,7 +139,7 @@ object Scheduler extends App {
   }
 
   def test {
-    ArticleCollectors.getBntArticles(BntWorldTV, "_w").foreach (println) ; return
+    ArticleCollectors.getBnrArticles(Horizont).foreach (println) ; return
 
     val r = Runtime.getRuntime
     val tag = new String("title=xcv".getBytes(), "UTF-8")

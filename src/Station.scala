@@ -76,7 +76,7 @@ abstract class Station(val name: String, val folder: String, val timeZone: TimeZ
       val startMillis = point.getTimeInMillis
 
       val newArticles = try this.getArticles.filter(a => startMillis<=a.start.getTimeInMillis)
-      catch { case _ =>
+      catch { case _:Throwable  =>
         Scheduler.logger.error(name + " getArticle failed")
         List.empty[Article]
       }

@@ -23,9 +23,21 @@ import java.util
 
 object ArticleCollectors {
 
+  val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
+
+  def loadDoc(url: String) = {
+    val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
+    val parser = parserFactory.newSAXParser
+    val source = new org.xml.sax.InputSource(url)
+    val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
+    adapter.loadXML(source, parser)
+  }
+
+  def findByClass(node: Node, value: String) = node.child.find(it => (it \ "@class").text == value)
+
   def sorter(a:Article,b:Article) = a.start.compareTo(b.start)<0
 
-  def getBnrArticlesOld(station:Station, url:String) : List[Article] = {
+  def getBnrArticles_OLD(station:Station, url:String) : List[Article] = {
 
  		val monthMap = Map("Януари" -> 0, "Февруари" -> 1, "Март" -> 2, "Април" -> 3, "Май" -> 4, "Юни" -> 5, "Юли" -> 6, "Август" -> 7, "Септември" -> 8, "Октомври" -> 9, "Ноември" -> 10, "Декември" -> 11)
 
@@ -72,12 +84,12 @@ object ArticleCollectors {
        articlesList = articles.toList
        Utils.fixArticleDurations(articlesList)
      }
-     catch { case e => println(e.getMessage)}
+     catch { case e:Throwable  => println(e.getMessage)}
 
  		articlesList
  	}
 
-  def getBnrArticles2(station:BnrStation) : List[Article] = {
+  def getBnrArticles2_OLD(station:BnrStation) : List[Article] = {
 
     val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
 
@@ -121,72 +133,40 @@ object ArticleCollectors {
       articlesList = articles.toList
       Utils.fixArticleDurations(articlesList)
     }
-    catch { case e => println(e.getMessage)}
+    catch { case e:Throwable => println(e.getMessage)}
 
     articlesList
   }
 
-  def getBnrArticles3(station:BnrStation) : List[Article] = {
+  def getBnrArticles(station:BnrStation) : List[Article] = {
 
-    val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
-
+    val date = """(.+) (.+) (.+), (.+)""".r
+    val timeName = """(\n|\t)*(\d\d):(\d\d)(\n|\t)*(.*)\n""".r
     val articles = new ListBuffer[Article]
     var articlesList = List.empty[Article]
     try {
-      val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
-      val parser = parserFactory.newSAXParser
-      val source = new org.xml.sax.InputSource(station.programaUrl)
-      val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
-      val doc = adapter.loadXML(source, parser)
-
-      val moduleTag = (doc \\ "module").head
-      val tag2 = Utils.findNodes(moduleTag, (n: Node) =>
-        n.label == "h2" || (n.label == "div" && (n \ "@class").isEmpty)
-      )
-      val date = """(.+) (.+) (.+), (.+)""".r
-      val timeName = """(\n|\t)*(\d\d):(\d\d)(\n|\t)*(.*)\n""".r
-      var dayInt=0
-      var monthInt=0
-      var yearInt=0
-
-      tag2.foreach{ tag => tag.label match {
+      val doc = loadDoc(station.programaUrl)
+      var timegen: timeGenerator = null
+      for (item <- (doc \\ "module").head.descendant.filter( it => it.label == "h2" || (it.label == "div" && (it \ "@class").isEmpty))) {
+        item.label match {
           case "h2" =>
-            val date(day, month, year, _) = tag.text
-            dayInt = day.toInt
-            monthInt = monthMap(month)
-            yearInt = year.toInt
+            val date(day, month, year, _) = item.text
+            timegen = new timeGenerator(station.timeZone, year.toInt, monthMap(month), day.toInt)
           case "div" =>
-            val fm = timeName.findFirstMatchIn(tag.text).get
-            val hour = fm.group(2).toInt
-            val minute = fm.group(3).toInt
+            val fm = timeName.findFirstMatchIn(item.text).get
+            val hour = fm.group(2)
+            val minute = fm.group(3)
             val title = fm.group(5)
-            val article_start = Calendar.getInstance(station.timeZone)
-            article_start.set(yearInt, monthInt, dayInt, hour, minute, 0)
-            article_start.set(Calendar.MILLISECOND, 0)
-            articles += new Article(station, article_start, 0, title)
-        }
-      }
+            articles += new Article(station, timegen.next(hour.toInt, minute.toInt), 0, title)
+      }}
       articlesList = articles.toList
       Utils.fixArticleDurations(articlesList)
     }
-    catch { case e => println(e.getMessage)}
-
+    catch { case e:Throwable => println(e.getMessage) }
     articlesList
   }
 
-  def loadDoc(url: String) = {
-    val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
-    val parser = parserFactory.newSAXParser
-    val source = new org.xml.sax.InputSource(url)
-    val adapter = new scala.xml.parsing.NoBindingFactoryAdapter
-    adapter.loadXML(source, parser)
-  }
-
-  def findByClass(node: Node, value: String) = node.child.find(it => (it \ "@class").text == value)
-
   def getBntArticles(station: BntStation, suffix: String) : List[Article] = {
-
-    val monthMap = Map("януари" -> 0, "февруари" -> 1, "март" -> 2, "април" -> 3, "май" -> 4, "юни" -> 5, "юли" -> 6, "август" -> 7, "септември" -> 8, "октомври" -> 9, "ноември" -> 10, "декември" -> 11)
 
     val articles = new ListBuffer[Article]
     var articlesList = List.empty[Article]
@@ -220,8 +200,7 @@ object ArticleCollectors {
       articlesList = articles.toList
       Utils.fixArticleDurations(articlesList)
     }
-    catch { case e => println(e.getMessage)}
-
+    catch { case e:Throwable => println(e.getMessage) }
     articlesList
   }
 
@@ -242,7 +221,7 @@ object ArticleCollectors {
           articles += new Article(station, timegen.next(hour.toInt, minute.toInt), 0, title)
         })
       }
-      catch { case e => println(e.getMessage) }
+      catch { case e:Throwable => println(e.getMessage) }
       day.add(Calendar.DATE, 1)
     }
     articlesList = articles.toList
@@ -307,7 +286,7 @@ object ArticleCollectors {
  		articlesList
  	}
 
-  def Chasa24Articles(station: Station, tvId: Int): List[Article] = {
+  def Chasa24Articles_OLD(station: Station, tvId: Int): List[Article] = {
     val date = Calendar.getInstance(station.timeZone)
     //date.add(Calendar.DATE,-1)
     //val df = new SimpleDateFormat("dd-MM-yyyy")
@@ -350,8 +329,7 @@ object ArticleCollectors {
     articlesList
   }
 
-
-  def StartBgArticles(station: Station, tvId: String): List[Article] = {
+  def StartBgArticles_OLD(station: Station, tvId: String): List[Article] = {
     val date = Calendar.getInstance(station.timeZone)
     val parserFactory = new org.ccil.cowan.tagsoup.jaxp.SAXFactoryImpl
     val parser = parserFactory.newSAXParser
@@ -391,7 +369,7 @@ object ArticleCollectors {
     articlesList
   }
 
-  def DnevnikBgTvGuide(station:Station, channelId:Int) : List[Article] = {
+  def DnevnikBgTvGuide_OLD(station:Station, channelId:Int) : List[Article] = {
     val date = Calendar.getInstance(station.timeZone)
     date.add(Calendar.DATE,-1)
     val df = new SimpleDateFormat("dd-MM-yyyy")
@@ -439,7 +417,7 @@ object ArticleCollectors {
     articlesList
   }
 
-  def TvGuide(station:Station, tvid:Int) : List[Article] = {
+  def TvGuide_OLD(station:Station, tvid:Int) : List[Article] = {
     val date = Calendar.getInstance(station.timeZone)
     //date.add(Calendar.DATE,-1)
     //val df = new SimpleDateFormat("dd-MM-yyyy")
@@ -476,6 +454,5 @@ object ArticleCollectors {
     Utils.fixArticleDurations(articlesList)
     articlesList
   }
-
 
 }
